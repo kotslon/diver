@@ -1,0 +1,4 @@
+.obj-wrapper {
+	position: absolute;
+	z-index: 16;
+}
