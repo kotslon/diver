@@ -3,7 +3,7 @@ function DivingFun(containerId) {
 	// CONSTANTS
 	
 	// Dimensions of diving fun board
-	// Equal to background picture dimentions
+	// Equal to background picture dimensions
 	var DFB_WIDTH = 762;
 	var DFB_HEIGHT = 685;
 	var CONTAINER = document.getElementById(containerId);
@@ -70,7 +70,7 @@ function DivingFun(containerId) {
 	var LOGGING_LEVEL = LL_MUTE; // Change this according to your needs
 	
 	// Radio response
-	var AFFIRMATIVE_SIR = true; // No great purpose
+	var AFFIRMATIVE_SIR = true; // No great purpose,
 	var NEGATIVE_SIR = false;   // just kidding :)
 
 	// CLASSES
@@ -100,15 +100,34 @@ function DivingFun(containerId) {
 		this._image;
 		this._wrapper;
 		
+		
+		// Update visual elements to match current state
+		this._update = function () {
+			this._wrapper.style.left = this._x.toString()+'px';
+			this._wrapper.style.top = this._y.toString()+'px';
+		};
+		
+		// Create necessary visual elements 
+		this._show = function () {
+			//TODO: move image to background?
+			if(this._wrapper !== undefined ) {
+				CONTAINER.removeChild(this._wrapper);
+			}
+			this._wrapper = document.createElement('div');
+			this._wrapper.setAttribute('class','obj-wrapper');
+			this._wrapper.style.marginLeft = '-' + 
+				Math.round(this._image.width / 2).toString() + 'px';
+			this._wrapper.style.marginTop = '-' +
+				Math.round(this._image.height / 2).toString() + 'px';
+			this._wrapper.appendChild(this._image);
+			CONTAINER.appendChild(this._wrapper);
+			this._update();
+		};
+		
 		this.setImage = function (img) {
 			this._image = new Image();
 			this._image.src = IMGS[img].src;
-		};
-		
-		// Update visual elements to match current state
-		this.update = function () {
-			this._wrapper.style.left = this._x.toString()+'px';
-			this._wrapper.style.top = this._y.toString()+'px';
+			this._show();
 		};
 		
 		this.moveTo = function (x, y) {
@@ -120,19 +139,10 @@ function DivingFun(containerId) {
 			this.moveTo(this._x+dx, this._y+dy);
 		};
 		
-		// Create necessary visual elements 
-		this.show = function () {
-			//TODO: move image to background?
-			this._wrapper = document.createElement('div');
-			this._wrapper.setAttribute('class','obj-wrapper');
-			this._wrapper.style.marginLeft = '-' + 
-				Math.round(this._image.width / 2).toString() + 'px';
-			this._wrapper.style.marginTop = '-' +
-				Math.round(this._image.height / 2).toString() + 'px';
-			this._wrapper.appendChild(this._image);
-			CONTAINER.appendChild(this._wrapper);
-			this.update();
+		this.getPosition = function () {
+			return {x: this._x, y: this._y};
 		};
+
 		
 		this.moveTo(x, y);
 	}
@@ -163,7 +173,7 @@ function DivingFun(containerId) {
 					this._blocked = true;
 				}
 				// Update visual
-				this.update();
+				this._update();
 			}
 		};
 		
@@ -171,7 +181,7 @@ function DivingFun(containerId) {
 		// Set random rate
 		this._rate = Math.floor(Math.random() * 10) + 1; 
 		this.setImage('mark' + this.getRate().toString());
-		this.show();
+		this._show();
 		this.release();
 	}
 	
@@ -182,52 +192,102 @@ function DivingFun(containerId) {
 	function Diver(x, y){
 		// Parent's constructor first
 		Obj.call(this, x, y);
+		
+		this._prevPosition;
 	
 		this._scubaTank = DWP_SCUBA_TANK_VOLUME; // Remaining volume
 		this._state = DS_RECHARGING_SCUBA;
+		this._goal = null;
 		
 		this._leftHand = null;
 		this._rightHand = null;
+		
+		this._setState = function (newState) {
+			this._state = newState;
+			switch (this._state) {
+			case DS_WAITING: break;
+			case DS_IMMERSION: break;
+			case DS_LEFT: this.setImage('diver-go-harvest'); break;
+			case DS_RIGHT: this.setImage('diver-go-home'); break;
+			case DS_EMERSION: this.setImage('diver-tros'); break;
+			case DS_RECHARGING_SCUBA: break;
+			}
+		};
+		
+		this._savePrevPosition = function () {
+			this._prevPosition = {x: this._x, y: this._y};
+		};
+
+		this._headingToGoal = function () {
+			if (this._goal !== null) {
+				if(this._goal.y === DWP_DEPTH){
+					if (this._y === DWP_DEPTH){
+						this._setState( (this._goal.x === this._x ? DS_WAITING : 
+							           (this._goal.x > this._x ? DS_RIGHT : DS_LEFT ) ) );
+					} else {
+						this._setState(DS_IMMERSION);
+					}
+				} else {
+					//TODO: Goal is boat?
+				}
+			}
+		};
+		
+		this._stopAtGoal = function ()  {
+			if (this._goal !== null){
+				// Goals are on the bottom - no need to check depth
+				if( ( (this._prevPosition.x > this._goal.x) && (this._goal.x > this._x) ) || 
+					( (this._prevPosition.x < this._goal.x) && (this._goal.x < this._x) )	
+				  ){
+					this._x = this._goal.x;
+				}
+			}
+		};
 		
 		this.die = function () {
 			
 		};
 		
-		this.canYouCollect = function (mark) {
-			var response = AFFIRMATIVE_SIR; // optimistic, yeah!
-			var load = (this._leftHand===null ? 0 : 1) + (this._leftHand===null ? 0 : 2) +
-				radio.assignedToMe(this).length;
-			if (load >= 2) { response = NEGATIVE_SIR; }
-			return response;
+		
+		this.goGoGo = function (goal){
+			this._goal = goal;
+			this._headingToGoal();
+			return AFFIRMATIVE_SIR;  // It's equal to true. Just improving readability. Life's good. Smile!
 		};
 		
 		// Main function of divers's life cycle
 		this.step = function () {
+			this._savePrevPosition();
 			switch (this._state) {
 			case DS_WAITING: break;
 			case DS_IMMERSION:
 				this.moveRel(0, DWP_DIVER_SPEED);
+				// Check crossing borders
 				if (this._y >= DWP_DEPTH){
-					this._y = DWP_DEPTH;
-					// Change state
+					this._y = DWP_DEPTH;					
 				}
 				break;
 			case DS_LEFT:
 				this.moveRel(-DWP_DIVER_SPEED, 0);
+				//TODO: Check crossing borders
+				this._stopAtGoal();
 				break;
 			case DS_RIGHT:
 				this.moveRel(DWP_DIVER_SPEED, 0);
+				//TODO: Check crossing borders
+				this._stopAtGoal();
 				break;
 			case DS_EMERSION:
 				this.moveRel(0, -DWP_DIVER_SPEED);
 				//TODO: make stops to avoid illness
+				//TODO: Check crossing borders
 				break;
 			case DS_RECHARGING_SCUBA:
 				// Charge
 				this._scubaTank += DWP_COMPRESSOR_SPEED;
 				if (this._scubaTank >= DWP_SCUBA_TANK_VOLUME ){
 					this._scubaTank = DWP_SCUBA_TANK_VOLUME;
-					this._state = DS_IMMERSION;
+					this._setState(DS_WAITING);
 				}
 				break;
 			}
@@ -238,10 +298,12 @@ function DivingFun(containerId) {
 			// Move diver and marks being carried
 			
 			// Update visual
-			this.update();
+			this._update();
 			// Check if still alive :)
 			if (this._scubaTank < 0){ this.die(); }
 		};
+		
+		this._savePrevPosition(); // Just to initialize it
 	}
 	
 	
@@ -250,7 +312,7 @@ function DivingFun(containerId) {
 	function Radio()  {
 		this._marks = new Array();
 		
-		this.assignedToMe = function (diver) {
+		this._assignedTo = function (diver) {
 			var response = new Array();
 			for(var i=0; i<marks.length; i++){
 				if(this._marks[i] !== undefined){
@@ -259,6 +321,16 @@ function DivingFun(containerId) {
 					}
 				}
 			}
+			return response;
+		};
+		
+		this._canAssign = function (diver, mark) {
+			var response = true;
+			// Check if diver has a free hand
+			if (this._assignedTo(diver).length >= 2){
+				response = false;
+			} 
+			//TODO: Check if diver has enough oxygen
 			return response;
 		};
 		
@@ -278,17 +350,30 @@ function DivingFun(containerId) {
 					// if divers saw the mark, or moved and dropped it,
 					// they have reported by radio and can definitely
 					// predict it's position
+					
+					// For now: we see everything
+					//TODO: Check if we really see it
+					this._marks[i].seen = true;
 				}
-				if(!this._marks[i].assigned){//TODO: !!!!!! ONLY IF SEEN
+				if(!this._marks[i].assigned && this._marks[i].seen){//TODO: !!!!!! ONLY IF SEEN
 					// Try to assign mark to one of divers
 					for(var j=0;  j<divers.length; j++){
-						if (divers[j].canYouCollect(marks[i]) === AFFIRMATIVE_SIR) {
+						if (this._canAssign(divers[j], marks[i])) {
 							this._marks[i].assigned = true;
 							this._marks[i].assignedTo = divers[j];
 							break;
 						}
 					}
 				}
+			}
+			// Command
+			for(var i=0;  i<divers.length; i++){
+				var goal = null;
+				var assigned = this._assignedTo(divers[i]);
+				if(assigned.length > 0) {
+					goal = {x: assigned[0].getPosition().x, y: DWP_DEPTH};
+				}
+				divers[i].goGoGo(goal);
 			}
 		};
 	}
@@ -311,7 +396,6 @@ function DivingFun(containerId) {
 		var diver = new Diver(DWP_DIVER_START_X, DWP_DIVER_START_Y);
 		diver.setImage('diver-tros');
 		divers.push(diver);
-		diver.show();
 	}
 	
 	function createMark(x, y) {
@@ -391,7 +475,6 @@ function DivingFun(containerId) {
 		var bg = new Obj(DFB_WIDTH / 2, DFB_HEIGHT / 2);
 		bg.setImage('bg');
 		bgObjs.push(bg);
-		bg.show();
 		// Create mastermind
 		radio = new Radio();
 		// Creating 1st diver
