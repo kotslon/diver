@@ -38,12 +38,11 @@ function DivingFun(containerId) {
 	var DWP_BOAT_Y = 140;
 	
 	// Diver states
-	var DS_WAITING = 0;
+	var DS_STILL = 0;
 	var DS_IMMERSION = 1;
 	var DS_LEFT = 2;
 	var DS_RIGHT = 3;
 	var DS_EMERSION = 4;
-	var DS_RECHARGING_SCUBA = 5;
 	
 	// Mark states
 	var MS_NOT_SEEN = 0;
@@ -55,6 +54,7 @@ function DivingFun(containerId) {
 	// Radio commands
 	var RC_HARVEST = 0;
 	var RC_RETURN_TO_BASE = 1;
+	var RC_PATROL = 2;
 	
 	// Sources for images
 	var IMGS_PREFIX = 'images/';
@@ -64,7 +64,7 @@ function DivingFun(containerId) {
 			'mark5': IMGS_PREFIX+'tf-star5.png', 'mark6': IMGS_PREFIX+'tf-star6.png',
 			'mark7': IMGS_PREFIX+'tf-star7.png', 'mark8': IMGS_PREFIX+'tf-star8.png',
 			'mark9': IMGS_PREFIX+'tf-star9.png', 'mark10': IMGS_PREFIX+'tf-star10.png',
-			'bg': IMGS_PREFIX+'back.jpg', 'diver-tros': IMGS_PREFIX+'Diver-tros.png',
+			'bg': IMGS_PREFIX+'back.jpg', 'diver-rope': IMGS_PREFIX+'Diver-tros.png',
 			'diver-go-harvest': IMGS_PREFIX+'Diver-go-harvest.png',
 			'diver-go-home': IMGS_PREFIX+'Diver-go-home.png',
 			};
@@ -224,7 +224,7 @@ function DivingFun(containerId) {
 		this._prevPosition;
 	
 		this._scubaTank = DWP_SCUBA_TANK_VOLUME; // Remaining volume
-		this._state = DS_RECHARGING_SCUBA;
+		this._state = DS_STILL;
 		this._goal = null;
 		
 		this._leftHand = null;
@@ -234,12 +234,11 @@ function DivingFun(containerId) {
 		this._setState = function (newState) {
 			this._state = newState;
 			switch (this._state) {
-			case DS_WAITING: break;
+			case DS_STILL: break;
 			case DS_IMMERSION: break;
 			case DS_LEFT: this.setImage('diver-go-harvest'); break;
 			case DS_RIGHT: this.setImage('diver-go-home'); break;
-			case DS_EMERSION: this.setImage('diver-tros'); break;
-			case DS_RECHARGING_SCUBA: break;
+			case DS_EMERSION: this.setImage('diver-rope'); break;
 			}
 		};
 		
@@ -247,80 +246,118 @@ function DivingFun(containerId) {
 			this._prevPosition = {x: this._x, y: this._y};
 		};
 
-		this._headingToGoal = function () {
+		// Determine next move
+		this._headingGoal = function () {
 			if (this._goal !== null) {
-				if(this._goal.y === DWP_DEPTH){
-					if (this._y === DWP_DEPTH){
-						this._setState( (this._goal.x === this._x ? DS_WAITING : 
-							           (this._goal.x > this._x ? DS_RIGHT : DS_LEFT ) ) );
+				if (this._y === DWP_DEPTH) {
+					// Can move sidewise - we are on the bottom
+					if (this._goal.y === DWP_DEPTH) {
+						// Goal is on the bottom, too
+						this._setState( (this._goal.x === this._x ? DS_STILL : 
+					                      (this._goal.x > this._x ? DS_RIGHT : DS_LEFT ) 
+					                  ) );
 					} else {
-						this._setState(DS_IMMERSION);
+						// Going to base
+						// Check if we missed the rope
+						if ( ( (this._prevPosition.x >= DWP_BOAT_X) && (DWP_BOAT_X >= this._x) ) || 
+						   ( (this._prevPosition.x <= DWP_BOAT_X) && (DWP_BOAT_X <= this._x) )
+						   ){
+							// Stay at the corner
+							this._x = DWP_BOAT_X;
+							this._state = DS_EMERSION;
+						} else {
+							// Going to the rope
+							this._setState( DWP_BOAT_X > this._x ? DS_RIGHT : DS_LEFT );
+						}
 					}
 				} else {
-					// Goal is boat
-					this._setState( this._goal.x > this._x ? DS_RIGHT : 
-						            (this._goal.x < this._x ? DS_LEFT : this._state) );
+					// Can't move sidewise - up or down
+					this._setState(this._y > this._goal.y ? DS_EMERSION : DS_IMMERSION);
+				}
+			} else { // We have no goal yet
+				this._setState(DS_STILL);
+			}
+		};
+		
+		this._doTheJob = function () {
+			if (this._goal !== null) {
+				switch (this._goal.command) {
+				case RC_HARVEST:
+					var collected = false;
+					if (this._leftHand === null) {
+						if(this._goal.mark.grab()) {
+							this._leftHand = this._goal.mark;
+							collected = true;
+						}
+					} else if (this._rightHand === null) {
+						if(this._goal.mark.grab()) {
+							this._rightHand = this._goal.mark;
+							collected = true;							
+						}
+					}
+					// Report by radio
+					if(collected){ 
+						radio.reportCollected(this, this._goal.mark); 
+						this._goal = null;
+					}
+					break;
+				case RC_RETURN_TO_BASE:
+					// Store marks
+					if(this._leftHand !== null){
+						radio.reportStored(this, this._leftHand);
+						this._leftHand = null;
+					}
+					if(this._rightHand !== null){
+						radio.reportStored(this, this._rightHand);
+						this._rightHand = null;
+					}
+					// Charge scuba tank
+					this._scubaTank += DWP_COMPRESSOR_SPEED;
+					if (this._scubaTank >= DWP_SCUBA_TANK_VOLUME ){
+						this._scubaTank = DWP_SCUBA_TANK_VOLUME;
+						this._goal = null;
+					}
+					break;
+				case RC_PATROL:
+						this._goal = null;
+					break;
 				}
 			}
 		};
 		
-		this._stopAtGoal = function ()  {
+		// Check if diver reached his goal, and if so - do the job
+		this._checkGoal = function ()  {
+			var reached = false;
 			if (this._goal !== null){
 				// Adjust X
-				if( ( (this._prevPosition.x >= this._goal.x) && (this._goal.x >= this._x) ) || 
-					( (this._prevPosition.x <= this._goal.x) && (this._goal.x <= this._x) )	
-				  ){
-					this._x = this._goal.x;					
-					if(this._goal.command === RC_HARVEST) {
-						// Collect mark
-						var collected = false;
-						if (this._leftHand === null) {
-							if(this._goal.mark.grab()) {
-								this._leftHand = this._goal.mark;
-								collected = true;
-							}
-						} else if (this._rightHand === null) {
-							if(this._goal.mark.grab()) {
-								this._rightHand = this._goal.mark;
-								collected = true;
-							}
-						}
-						// Report by radio
-						if(collected){
-							this._setState(DS_WAITING);
-							radio.reportCollected(this, this._goal.mark); 
-						}
-					} else if (this._goal.command === RC_RETURN_TO_BASE) {
-						if(this._y === DWP_DEPTH){ this._setState(DS_EMERSION); }
-					}
+				if( 
+					( 
+					  ( (this._prevPosition.x >= this._goal.x) && (this._goal.x >= this._x) ) || 
+					  ( (this._prevPosition.x <= this._goal.x) && (this._goal.x <= this._x) )    
+					) && (this._y === this._goal.y)
+				  ) {
+					this._x = this._goal.x;
+					reached = true;
 				}
 				// Adjust Y
-				if( ( (this._prevPosition.y >= this._goal.y) && (this._goal.y >= this._y) ) || 
-						( (this._prevPosition.y <= this._goal.y) && (this._goal.y <= this._y) )	
-					  ){
-						this._y = this._goal.y;
-						if (this._goal.command === RC_RETURN_TO_BASE) {
-							//if(this._y === DWP_BOAT_Y){ this._setState(DS_EMERSION); }
-							//TODO: Store marks
-							if(this._leftHand !== null){
-								radio.reportStored(this, this._leftHand);
-								this._leftHand = null;
-							}
-							if(this._rightHand !== null){
-								radio.reportStored(this, this._rightHand);
-								this._rightHand = null;
-							}
-							//TODO: Charge scuba tank
-						}
-					}
-			}
+				if( 
+					( 
+					  ( (this._prevPosition.y >= this._goal.y) && (this._goal.y >= this._y) ) || 
+					  ( (this._prevPosition.y <= this._goal.y) && (this._goal.y <= this._y) )    
+					) && (this._x === this._goal.x)
+				  ) {
+					this._y = this._goal.y;
+					reached = true;
+				}
+			} 
+			return reached;
 		};
 		
 		this.die = function () {
 			
 		};
 		
-		//TODO: How to overload moveTo ?
+		// Move marks being carried
 		this._moveMarks = function () {
 			if (this._leftHand !== null) {
 				this._leftHand.moveTo(this._x, this._y);
@@ -330,62 +367,49 @@ function DivingFun(containerId) {
 			} 
 		};
 		
+		// Commands from breif by radio
 		this.goGoGo = function (goal){
 			this._goal = goal;
-			this._headingToGoal();
+			this._headingGoal();
 			return AFFIRMATIVE_SIR;  // It's equal to true. Just improving readability. Life's good. Smile!
 		};
 		
 		// Main function of divers's life cycle
 		this.step = function () {
+			// 1. Move
 			this._savePrevPosition();
 			switch (this._state) {
-			case DS_WAITING:
-				this._stopAtGoal();
-				break;
+			case DS_STILL: break;
 			case DS_IMMERSION:
 				this.moveRel(0, DWP_DIVER_SPEED);
 				// Check crossing borders
 				if (this._y >= DWP_DEPTH){
 					this._y = DWP_DEPTH;					
 				}
-				this._moveMarks();
 				break;
 			case DS_LEFT:
 				this.moveRel(-DWP_DIVER_SPEED, 0);
 				//TODO: Check crossing borders
-				this._stopAtGoal();
-				this._moveMarks();
 				break;
 			case DS_RIGHT:
 				this.moveRel(DWP_DIVER_SPEED, 0);
 				//TODO: Check crossing borders
-				this._stopAtGoal();
-				this._moveMarks();
 				break;
 			case DS_EMERSION:
 				this.moveRel(0, -DWP_DIVER_SPEED);
 				//TODO: make stops to avoid illness
-				//TODO: Check crossing borders
-				this._stopAtGoal();
-				this._moveMarks();
-				break;
-			case DS_RECHARGING_SCUBA:
-				// Charge
-				this._scubaTank += DWP_COMPRESSOR_SPEED;
-				if (this._scubaTank >= DWP_SCUBA_TANK_VOLUME ){
-					this._scubaTank = DWP_SCUBA_TANK_VOLUME;
-					this._setState(DS_WAITING);
+				// Check crossing borders	
+				if (this._y <= DWP_BOAT_Y){
+					this._y = DWP_BOAT_Y;					
 				}
 				break;
 			}
-			
-			
-			// Reduce scuba tank remaining volume
-			
+			// 2. Reduce scuba tank remaining volume
+			// 3. Check if we reached the goal,  and if so - do the job
+			if (this._checkGoal()) { this._doTheJob(); }
 			// Move diver and marks being carried
-			
-			// Update visual
+			this._moveMarks();
+			// Update visual			
 			this._update();
 			// Check if still alive :)
 			if (this._scubaTank < 0){ this.die(); }
@@ -396,7 +420,7 @@ function DivingFun(containerId) {
 	
 	inherit(Diver, Obj);
 	
-	// Class for radio - the mastermind,  collective intelligence of divers
+	// Class for radio - the mastermind, collective intelligence of divers
 	//TODO: make it a singleton? 
 	function Radio()  {
 		this._marks = new Array();
@@ -459,6 +483,7 @@ function DivingFun(containerId) {
 				if( this._marks[i] !== undefined ) {
 					if( (marks[i] === mark) && (this._marks[i].assignedTo === diver) ) {
 						this._marks[i].state = MS_STORED;
+						this._marks[i].assignedTo = null;
 						break;
 					} 
 				}
@@ -531,7 +556,7 @@ function DivingFun(containerId) {
 	
 	function createDiver() {
 		var diver = new Diver(DWP_BOAT_X, DWP_BOAT_Y);
-		diver.setImage('diver-tros');
+		diver.setImage('diver-rope');
 		divers.push(diver);
 	}
 	
@@ -615,7 +640,7 @@ function DivingFun(containerId) {
 		// Create mastermind
 		radio = new Radio();
 		// Creating 1st diver
-		createDiver();
+		createDiver();createDiver();createDiver();
 				
 		// Add interaction handler
 		CONTAINER.onclick = onClick;
