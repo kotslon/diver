@@ -8,7 +8,8 @@ function DivingFun(containerId) {
 	var DFB_HEIGHT = 685;
 	var CONTAINER = document.getElementById(containerId);
 	
-	var STEP_INTERVAL = 10;
+	var FPS = 30;  // Tune up for quality, down for speed
+	var STEP_INTERVAL = Math.round(1000 / FPS);
 	var STEPS_IN_SECOND = 1000 / STEP_INTERVAL; 
 	
 	// Diving world parameters
@@ -610,6 +611,7 @@ function DivingFun(containerId) {
 	var radio;
 	var timer;
 	var state;
+	var inStep = false;
 	var log = new Logger (LOGGING_LEVEL); // creating new logger
 	
 	// FUNCTIONS
@@ -650,7 +652,16 @@ function DivingFun(containerId) {
 	// Main function of DivingFun life cycle
 	function step() {
 		log.s('>>>> NEW STEP: state === '+state+' <<<<', LL_DEBUG);
-		clearInterval(timer);
+		// Wait for previous step if necessary
+		if(inStep){
+			clearInterval(timer);
+			log.s('>>>> WARNING! Waiting for previous step! <<<<', LL_WARNING);
+			while (inStep){
+				// Waiting for previous step
+			}
+			timer = setInterval(step, STEP_INTERVAL);
+		}
+		inStep = true;		
 		switch (state) {
 		case STATE_LOADING:
 			var loaded = true;
@@ -686,8 +697,8 @@ function DivingFun(containerId) {
 			break;
 		case STATE_PAUSED: break;
 		}
-		timer = setInterval(step, STEP_INTERVAL);
-	}
+		inStep = false;
+	} // step
 	
 	// INITIALIZATION
 	
