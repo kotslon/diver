@@ -12,14 +12,20 @@ function DivingFun(containerId) {
 	var STEPS_IN_SECOND = 1000 / STEP_INTERVAL; 
 	
 	// Diving world parameters
+	var DWP_DEPTH = 620; // px from top
+	var DWP_BOAT_X = 625;
+	var DWP_BOAT_Y = 140;
 	var DWP_COMPRESSOR_SPEED = 3 * 1000 / STEPS_IN_SECOND;  // ml per step (converted from liters per second)
 	var DWP_SCUBA_TANK_VOLUME = 20 * 1000;  // ml
 	var DWP_DIVER_SPEED = /*20*/ 120 / STEPS_IN_SECOND;  // px per step
-	var DWP_EMERSION_1ST_STOP = Math.round(DFB_HEIGHT - DFB_HEIGHT / 3);  // px from top
+	var DWP_EMERSION_1ST_STOP = Math.round(DWP_BOAT_Y + 
+			(DWP_DEPTH - DWP_BOAT_Y) * (1 - 1 / 3) );  // px from top
 	var DWP_EMERSION_1ST_STOP_DURATION = 5 * STEPS_IN_SECOND;  // steps
-	var DWP_EMERSION_2ND_STOP = Math.round(DFB_HEIGHT - DFB_HEIGHT / 3 * 2);  // px from top
+	var DWP_EMERSION_2ND_STOP = Math.round(DWP_BOAT_Y + 
+			(DWP_DEPTH - DWP_BOAT_Y) * (1 - 2 / 3) );  // px from top
 	var DWP_EMERSION_2ND_STOP_DURATION = 10 * STEPS_IN_SECOND;  // steps
-	var DWP_EMERSION_2D_STOP = Math.round(DFB_HEIGHT - DFB_HEIGHT / 5 * 4);  // px from top
+	var DWP_EMERSION_3D_STOP = Math.round(DWP_BOAT_Y + 
+			(DWP_DEPTH - DWP_BOAT_Y) * (1 - 4 / 5) );  // px from top
 	var DWP_EMERSION_3D_STOP_DURATION = 15 * STEPS_IN_SECOND;  // steps
 	var DWP_DIVER_EMERSION_VOLUME = 50;  // ml
 	var DWP_SCUBA_USE_SPEED = 50 / STEPS_IN_SECOND;  // ml per step
@@ -27,15 +33,20 @@ function DivingFun(containerId) {
 	var DWP_MARK_EMERSION_VOLUME = 50;  // ml per rate point
 	var DWP_MARK_IMMERSION_SPEED = 80  / STEPS_IN_SECOND;  // px per step
 	var DWP_DIVER_VIEW = DFB_WIDTH / 3;  // px
+	
+	// Pre-calculate oxygen use to have no need to do it again every step
+	var DWP_SCUBA_USE = new Array(); // ml per step
+	for (var rate=0; rate<=20; rate++){ 
+		// 1 or 2 marks: from 1 to 10 give us max summary rate 20
+		DWP_SCUBA_USE[rate] = DWP_SCUBA_USE_SPEED + DWP_MARK_SCUBA_USE * rate;
+		// Not a grate optimization? Whatever... 
+	}
+	
 	// Diver's hands' delta (from diver's position), heading right
 	var DWP_DIVER_LEFT_HAND_DX = 20; //TODO: px from center
 	var DWP_DIVER_LEFT_HAND_DY = -10; //TODO: px from center
 	var DWP_DIVER_RIGHT_HAND_DX = 10; //TODO: px from center
 	var DWP_DIVER_RIGHT_HAND_DY = 0; //TODO: px from center
-	
-	var DWP_DEPTH = 620; // px from top
-	var DWP_BOAT_X = 625;
-	var DWP_BOAT_Y = 140;
 	
 	// Diver states
 	var DS_STILL = 0;
@@ -82,7 +93,7 @@ function DivingFun(containerId) {
 	var LL_ERROR = 3;
 	var LL_MUTE = 4; // no logging
 	
-	var LOGGING_LEVEL = LL_MUTE; // Change this according to your needs
+	var LOGGING_LEVEL = LL_INFO; // Change this according to your needs
 	
 	// Radio response
 	var AFFIRMATIVE_SIR = true; // No great purpose,
@@ -229,9 +240,16 @@ function DivingFun(containerId) {
 		
 		this._leftHand = null;
 		this._rightHand = null;
+		// For counting caisson disease therapy time
+		this._caissonTherapy = {stop1: 0, stop2: 0, stop3: 0};
 		
 		
 		this._setState = function (newState) {
+			if(newState!==DS_EMERSION) {
+				this._caissonTherapy.stop1 = 0;
+				this._caissonTherapy.stop2 = 0;
+				this._caissonTherapy.stop3 = 0;
+			}
 			this._state = newState;
 			switch (this._state) {
 			case DS_STILL: break;
@@ -354,7 +372,8 @@ function DivingFun(containerId) {
 		};
 		
 		this.die = function () {
-			
+			log.s('>>>> WARNING! Dead body in the water!', LL_INFO);
+			log.s(this);
 		};
 		
 		// Move marks being carried
@@ -396,15 +415,56 @@ function DivingFun(containerId) {
 				//TODO: Check crossing borders
 				break;
 			case DS_EMERSION:
-				this.moveRel(0, -DWP_DIVER_SPEED);
-				//TODO: make stops to avoid illness
-				// Check crossing borders	
-				if (this._y <= DWP_BOAT_Y){
-					this._y = DWP_BOAT_Y;					
+				// Many checks to avoid caisson desease
+				if ( (this._y === DWP_EMERSION_1ST_STOP) &&
+				     (this._caissonTherapy.stop1 < DWP_EMERSION_1ST_STOP_DURATION) ){
+					this._caissonTherapy.stop1 += 1; // Counting in steps!
+				} else if ( (this._y === DWP_EMERSION_2ND_STOP) &&
+				     (this._caissonTherapy.stop2 < DWP_EMERSION_2ND_STOP_DURATION) ){
+					this._caissonTherapy.stop2 += 1; // Counting in steps!
+				} else if ( (this._y === DWP_EMERSION_3D_STOP) &&
+				     (this._caissonTherapy.stop3 < DWP_EMERSION_3D_STOP_DURATION) ){
+					this._caissonTherapy.stop3 += 1; // Counting in steps!
+				} else {
+					this.moveRel(0, -DWP_DIVER_SPEED);
+					// Check crossing borders	
+					if (this._y <= DWP_BOAT_Y){
+						this._y = DWP_BOAT_Y;					
+					}
+					// Check if diver must start therapy
+					if ( // Starting 1st therapy stop
+						 ( (this._prevPosition.y > DWP_EMERSION_1ST_STOP) && 
+						   (DWP_EMERSION_1ST_STOP >= this._y) )    
+								   ){
+						this._y = DWP_EMERSION_1ST_STOP;
+						this._caissonTherapy.stop1 = 0;
+						//TODO: Add visualisation
+					} else if ( // Starting 2nd therapy stop
+					    ( (this._prevPosition.y > DWP_EMERSION_2ND_STOP) && 
+						  (DWP_EMERSION_2ND_STOP >= this._y) )    
+							   ){
+						this._y = DWP_EMERSION_2ND_STOP;
+						this._caissonTherapy.stop2 = 0;
+						//TODO: Add visualisation
+					} else if ( // Starting 3d therapy stop
+					    ( (this._prevPosition.y > DWP_EMERSION_3D_STOP) && 
+						  (DWP_EMERSION_3D_STOP >= this._y) )    
+							   ){
+						this._y = DWP_EMERSION_3D_STOP;
+						this._caissonTherapy.stop3 = 0;
+						//TODO: Add visualisation
+					}
 				}
 				break;
 			}
 			// 2. Reduce scuba tank remaining volume
+			if ( (this._y > DWP_BOAT_Y) || (this._prevPosition.y > DWP_BOAT_Y) ) {
+				// If diver was under the water during this step, he used oxygen
+				this._scubaTank -= DWP_SCUBA_USE[
+				     (this._leftHand===null ? 0 : this._leftHand.getRate())+
+				     (this._rightHand===null ? 0 : this._rightHand.getRate())
+				                   				];
+			}
 			// 3. Check if we reached the goal,  and if so - do the job
 			if (this._checkGoal()) { this._doTheJob(); }
 			// Move diver and marks being carried
@@ -602,6 +662,12 @@ function DivingFun(containerId) {
 				log.s('>>>> DFB_WIDTH === '+DFB_WIDTH+
 						', DFB_HEIGHT === '+DFB_HEIGHT+' <<<<', LL_DEBUG);
 				state = STATE_RUNNING;
+				// Creating background
+				var bg = new Obj(DFB_WIDTH / 2, DFB_HEIGHT / 2);
+				bg.setImage('bg');
+				bgObjs.push(bg);
+				// Creating 1st diver
+				createDiver();createDiver();createDiver();
 			}
 			break;
 		case STATE_RUNNING:
@@ -633,18 +699,10 @@ function DivingFun(containerId) {
 			IMGS[img] = new Image ();
 			IMGS[img].src = IMGS_SRCS[img];
 		}
-		// Creating background
-		var bg = new Obj(DFB_WIDTH / 2, DFB_HEIGHT / 2);
-		bg.setImage('bg');
-		bgObjs.push(bg);
 		// Create mastermind
 		radio = new Radio();
-		// Creating 1st diver
-		createDiver();createDiver();createDiver();
-				
 		// Add interaction handler
 		CONTAINER.onclick = onClick;
-		
 		// Set scene alive
 		log.s('>>>> LAUNCH: interval === '+STEP_INTERVAL+' <<<<', LL_INFO);
 		timer = setInterval(step, STEP_INTERVAL);
