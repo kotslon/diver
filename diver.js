@@ -133,6 +133,8 @@ function DivingFun(containerId) {
 		this._imageName;
 		this._wrapper;
 		
+		this.getX = function () { return this._x; };
+		this.getY = function () { return this._y; };
 		
 		// Update visual elements to match current state
 		this._update = function () {
@@ -595,9 +597,16 @@ function DivingFun(containerId) {
 					// they have reported by radio and can definitely
 					// predict it's position
 					
-					// For now: we see everything
-					//TODO: Check if we really see it
-					this._marks[markId].state = MS_SEEN;
+					for(var j=0;  j<divers.length; j++){
+						var dist = Math.sqrt(
+								Math.pow(allMarks[markId].getX() - divers[j].getX(), 2)+
+								Math.pow(allMarks[markId].getY() - divers[j].getY(), 2) 
+					            );
+						if (dist <= DWP_DIVER_VIEW) {
+							this._marks[markId].state = MS_SEEN;
+							break;
+						}
+					}			
 				}
 				if(this._marks[markId].state === MS_SEEN){
 					// Try to assign mark to one of divers
