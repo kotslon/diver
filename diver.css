@@ -2,3 +2,19 @@
 	position: absolute;
 	z-index: 16;
 }
+
+.scuba-state {
+  position: absolute;
+  background-color: gray;
+  border-radius: 5px;
+  padding: 1px;
+  z-index: 500;
+}
+
+.scuba-state div {
+   background-color: green;
+   width: 70%; /* counter */
+   height: 5px;
+   border-radius: 5px;
+ }
+ 

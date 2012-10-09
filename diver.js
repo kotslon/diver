@@ -31,7 +31,7 @@ function DivingFun(containerId) {
 			(DWP_DEPTH - DWP_BOAT_Y) * (1 - 4 / 5) );  // px from top
 	var DWP_EMERSION_3D_STOP_DURATION = 15 * STEPS_IN_SECOND;  // steps
 	var DWP_DIVER_EMERSION_VOLUME = 50;  // ml
-	var DWP_SCUBA_USE_SPEED = 50 / STEPS_IN_SECOND;  // ml per step
+	var DWP_SCUBA_USE_SPEED = /*50*/ 150 / STEPS_IN_SECOND;  // ml per step
 	var DWP_MARK_SCUBA_USE = 1 / STEPS_IN_SECOND;  //  ml per rate point per step
 	var DWP_MARK_EMERSION_VOLUME = 50;  // ml per rate point
 	var DWP_MARK_IMMERSION_SPEED = 80  / STEPS_IN_SECOND;  // px per step
@@ -104,6 +104,10 @@ function DivingFun(containerId) {
 			'diver-go-home': { lft: {dx: 13, dy: -7}, rght: {dx: 35, dy: -32} },
 			'diver-rope': { lft: {dx: 27, dy: -18}, rght: {dx: 18, dy: -49} }
 	};
+	
+	var DWP_SCUBA_INDICATOR_WIDTH = 50;
+	var DWP_SCUBA_INDICATOR_DX = - DWP_SCUBA_INDICATOR_WIDTH / 2;
+	var DWP_SCUBA_INDICATOR_DY = -70;
 	
 	// States
 	var STATE_LOADING = 0;
@@ -213,7 +217,7 @@ function DivingFun(containerId) {
 
 		
 		this.moveTo(x, y);
-	}
+	} // Obj
 	
 	// Class for marks - inherited from Obj
 	var Mark =  ( function () {
@@ -301,7 +305,29 @@ function DivingFun(containerId) {
 			this.getLastPatrol = function () { return this._lastPatrol; };
 			// For counting caisson disease therapy time
 			this._caissonTherapy = {stop1: 0, stop2: 0, stop3: 0};
+			// For showing scuba state
+			this._scubaIndicator;
+			this._scubaIndicatorWrapper;
 			
+			this._showScubaState = function () {
+				if (this._scubaIndicator === undefined) {
+					// Create indicator
+					this._scubaIndicatorWrapper = document.createElement('div');
+					this._scubaIndicatorWrapper.setAttribute('class','scuba-state');
+					this._scubaIndicatorWrapper.style.width = 
+						DWP_SCUBA_INDICATOR_WIDTH + 'px';
+					this._scubaIndicator = document.createElement('div');
+					this._scubaIndicatorWrapper.appendChild(this._scubaIndicator);
+					CONTAINER.appendChild(this._scubaIndicatorWrapper);
+				}
+				this._scubaIndicatorWrapper.style.left = (this._x + 
+						DWP_SCUBA_INDICATOR_DX).toString()+'px';
+				this._scubaIndicatorWrapper.style.top = (this._y +
+						DWP_SCUBA_INDICATOR_DY).toString()+'px';
+				this._scubaIndicator.style.width = Math.round(100 *
+						this._scubaTank / DWP_SCUBA_TANK_VOLUME).toString() + '%';
+				
+			} // _showScubaState
 			
 			this._setState = function (newState) {
 				if(newState!==DS_EMERSION) {
@@ -531,6 +557,8 @@ function DivingFun(containerId) {
 				if (this._checkGoal()) { this._doTheJob(); }
 				// Move diver and marks being carried
 				this._moveMarks();
+				// Show scuba inticator
+				this._showScubaState();
 				// Update visual			
 				this._update();
 				// Check if still alive :)
