@@ -43,12 +43,6 @@ function DivingFun(containerId) {
 		// Not a grate optimization? Whatever... 
 	}
 	
-	// Diver's hands' delta (from diver's position), heading right
-	var DWP_DIVER_LEFT_HAND_DX = 20; //TODO: px from center
-	var DWP_DIVER_LEFT_HAND_DY = -10; //TODO: px from center
-	var DWP_DIVER_RIGHT_HAND_DX = 10; //TODO: px from center
-	var DWP_DIVER_RIGHT_HAND_DY = 0; //TODO: px from center
-	
 	// Diver states
 	var DS_STILL = 0;
 	var DS_IMMERSION = 1;
@@ -80,7 +74,18 @@ function DivingFun(containerId) {
 			'diver-go-harvest': IMGS_PREFIX+'Diver-go-harvest.png',
 			'diver-go-home': IMGS_PREFIX+'Diver-go-home.png',
 			};
+	var IMGS_LAYOUTS = {
+			'diver-go-harvest': {'marginTop': '-60px'},
+			'diver-go-home': {'marginTop': '-60px'},
+			'diver-rope': {'marginTop': '-50px'},
+	};
 	var IMGS = {}; // We'll init it later
+	// Diver's hands' delta (from diver's position), heading right, for left invert X
+	var DWP_DIVER_HANDS = {
+			'diver-go-harvest': { lft: {dx: -35, dy: -32}, rght: {dx: -13, dy: -7} },
+			'diver-go-home': { lft: {dx: 13, dy: -7}, rght: {dx: 35, dy: -32} },
+			'diver-rope': { lft: {dx: 27, dy: -18}, rght: {dx: 18, dy: -49} }
+	};
 	
 	// States
 	var STATE_LOADING = 0;
@@ -125,6 +130,7 @@ function DivingFun(containerId) {
 		this._x;
 		this._y;
 		this._image;
+		this._imageName;
 		this._wrapper;
 		
 		
@@ -144,19 +150,31 @@ function DivingFun(containerId) {
 			}
 			this._wrapper = document.createElement('div');
 			this._wrapper.setAttribute('class','obj-wrapper');
-			this._wrapper.style.marginLeft = '-' + 
-				Math.round(this._image.width / 2).toString() + 'px';
-			this._wrapper.style.marginTop = '-' +
-				Math.round(this._image.height / 2).toString() + 'px';
+			// Apply layout if one is provided
+			if (IMGS_LAYOUTS[this._imageName] !== 'undefined'){
+				for (var p in IMGS_LAYOUTS[this._imageName]){
+					this._wrapper.style[p] = IMGS_LAYOUTS[this._imageName][p];
+				}
+			}
+			//  Apply shift to center image
+			this._wrapper.style.marginLeft = (this._wrapper.style.marginLeft === '' ?
+					    Math.round( - this._image.width / 2).toString() + 'px' :
+						this._wrapper.style.marginLeft);
+			this._wrapper.style.marginTop = (this._wrapper.style.marginTop === '' ?
+						Math.round( - this._image.height / 2).toString() + 'px':
+						this._wrapper.style.marginTop);
 			this._wrapper.appendChild(this._image);
 			CONTAINER.appendChild(this._wrapper);
 			this._update();
 		};
 		
 		this.setImage = function (img) {
-			this._image = new Image();
-			this._image.src = IMGS[img].src;
-			this._show();
+			if (this._imageName !== img) {
+				this._imageName = img;
+				this._image = new Image();
+				this._image.src = IMGS[this._imageName].src;
+				this._show();
+			}
 		};
 		
 		this.moveTo = function (x, y) {
@@ -373,17 +391,19 @@ function DivingFun(containerId) {
 		};
 		
 		this.die = function () {
-			log.s('>>>> WARNING! Dead body in the water!', LL_INFO);
+			log.s('>>>> WARNING! Dead body in the water! <<<<', LL_INFO);
 			log.s(this);
 		};
 		
 		// Move marks being carried
 		this._moveMarks = function () {
 			if (this._leftHand !== null) {
-				this._leftHand.moveTo(this._x, this._y);
+				this._leftHand.moveTo(this._x + DWP_DIVER_HANDS[this._imageName].lft.dx, 
+									  this._y + DWP_DIVER_HANDS[this._imageName].lft.dy);
 			} 
 			if (this._rightHand !== null) {
-				this._rightHand.moveTo(this._x, this._y);
+				this._rightHand.moveTo(this._x + DWP_DIVER_HANDS[this._imageName].rght.dx, 
+						  			   this._y + DWP_DIVER_HANDS[this._imageName].rght.dy);
 			} 
 		};
 		
