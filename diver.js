@@ -196,52 +196,63 @@ function DivingFun(containerId) {
 	}
 	
 	// Class for marks - inherited from Obj
-	function Mark(x, y){
-		// Parent's constructor first
-		Obj.call(this, x, y);
+	var Mark =  ( function () {
+		// private static fields
+		var createdCounter = 0;
+		var allMarks = {};
 		
-		this._rate;
-		this._blocked = true;
+		var CMark = function (x, y) {
 		
-		this.getRate = function () {
-			return this._rate;
-		};
-		
-		this.grab = function (){
-			var canGrab = false;
-			if (this._y === DWP_DEPTH) {
-				this._blocked = true;
-				canGrab = true;
-			} 
-			return canGrab;
-		};
-		
-		this.release = function () {
-			this._blocked = false;
-		};
-		
-		// Main function of mark's life cycle
-		this.step = function ()  {
-			if (!this._blocked) {
-				// Move mark
-				this.moveRel(0, DWP_MARK_IMMERSION_SPEED);
-				// Check if blocked now
-				if (this._y >= DWP_DEPTH) {
-					this._y = DWP_DEPTH;
+			// Parent's constructor first
+			Obj.call(this, x, y);
+			
+			this._id = createdCounter++;
+			
+			allMarks[this._id] = this;
+			
+			this._rate;
+			this._blocked = true;
+			
+			this.getId = function () { return this._id; };			
+			this.getRate = function () {return this._rate; };
+			
+			this.grab = function (){
+				var canGrab = false;
+				if (this._y === DWP_DEPTH) {
 					this._blocked = true;
+					canGrab = true;
+				} 
+				return canGrab;
+			};
+			
+			this.release = function () { this._blocked = false;	};
+			
+			// Main function of mark's life cycle
+			this.step = function ()  {
+				if (!this._blocked) {
+					// Move mark
+					this.moveRel(0, DWP_MARK_IMMERSION_SPEED);
+					// Check if blocked now
+					if (this._y >= DWP_DEPTH) {
+						this._y = DWP_DEPTH;
+						this._blocked = true;
+					}
+					// Update visual
+					this._update();
 				}
-				// Update visual
-				this._update();
-			}
+			};
+			
+			// Initializing
+			// Set random rate
+			this._rate = Math.floor(Math.random() * 10) + 1; 
+			this.setImage('mark' + this.getRate().toString());
+			this._show();
+			this.release();
 		};
-		
-		// Initializing
-		// Set random rate
-		this._rate = Math.floor(Math.random() * 10) + 1; 
-		this.setImage('mark' + this.getRate().toString());
-		this._show();
-		this.release();
-	}
+		// public static
+		CMark.getAllMarks = function () {	return allMarks; };
+		return CMark;
+	})(); // Mark
 	
 	inherit(Mark, Obj);
 	
@@ -504,15 +515,16 @@ function DivingFun(containerId) {
 	// Class for radio - the mastermind, collective intelligence of divers
 	//TODO: make it a singleton? 
 	function Radio()  {
-		this._marks = new Array();
+		this._marks = {};
 		
 		this._carriedBy = function (diver) {
 			var response = new Array();
-			for(var i=0; i<this._marks.length; i++){
-				if(this._marks[i] !== undefined){
-					if((this._marks[i].assignedTo === diver)&&
-					   (this._marks[i].state === MS_COLLECTED)){
-						response.push(marks[i]);
+			var allMarks = Mark.getAllMarks();
+			for (var id in allMarks){
+				if(this._marks[id] !== undefined){
+					if((this._marks[id].assignedTo === diver)&&
+					   (this._marks[id].state === MS_COLLECTED)){
+						response.push(marks[id]);
 					}
 				}
 			}
@@ -521,11 +533,12 @@ function DivingFun(containerId) {
 		
 		this._assignedTo = function (diver) {
 			var response = new Array();
-			for(var i=0; i<this._marks.length; i++){
-				if(this._marks[i] !== undefined){
-					if((this._marks[i].assignedTo === diver)&&
-					   (this._marks[i].state === MS_ASSIGNED)){
-						response.push(marks[i]);
+			var allMarks = Mark.getAllMarks();
+			for (var id in allMarks){
+				if(this._marks[id] !== undefined){
+					if((this._marks[id].assignedTo === diver)&&
+					   (this._marks[id].state === MS_ASSIGNED)){
+						response.push(marks[id]);
 					}
 				}
 			}
@@ -536,9 +549,10 @@ function DivingFun(containerId) {
 			var response = true;
 			// Check if diver has a free hand
 			var load = 0;
-			for(var i=0; i<this._marks.length; i++){
-				if(this._marks[i] !== undefined){
-					if(this._marks[i].assignedTo === diver){
+			var allMarks = Mark.getAllMarks();
+			for (var id in allMarks){
+				if(this._marks[id] !== undefined){
+					if(this._marks[id].assignedTo === diver){
 						load++;
 					}
 				}
@@ -549,39 +563,33 @@ function DivingFun(containerId) {
 		};
 		
 		this.reportCollected = function (diver, mark) {
-			for(var i=0; i<this._marks.length; i++){
-				if( this._marks[i] !== undefined ) {
-					if( (marks[i] === mark) && (this._marks[i].assignedTo === diver) ) {
-						this._marks[i].state = MS_COLLECTED;
-						break;
-					} 
-				}
-			};
+			if(this._marks[mark.getId()].assignedTo === diver) {
+				this._marks[mark.getId()].state = MS_COLLECTED;
+			} else {  // Something's wrong!
+				log.s('>>>> WARNING! Wrong mark collected! <<<<', LL_WARNINNG);
+			}
 		};		
 		
 		this.reportStored = function (diver, mark) {
-			for(var i=0; i<this._marks.length; i++){
-				if( this._marks[i] !== undefined ) {
-					if( (marks[i] === mark) && (this._marks[i].assignedTo === diver) ) {
-						this._marks[i].state = MS_STORED;
-						this._marks[i].assignedTo = null;
-						break;
-					} 
-				}
-			};
+			if(this._marks[mark.getId()].assignedTo === diver) {
+				this._marks[mark.getId()].state = MS_STORED;
+				this._marks[mark.getId()].assignedTo = null;
+			} else {  // Something's wrong!
+				log.s('>>>> WARNING! Wrong mark collected! <<<<', LL_WARNINNG);
+			}
 		};
 		
 		// Main decision making function - divers' conversation
 		this.brief = function () {
-			// first of all, gathering info about marksBy()
-			// WARNING: we can never delete marks!
-			for(var i=0; i<marks.length; i++){
-				if(this._marks[i] === undefined){
+			// first of all, gathering info about marks
+			var allMarks = Mark.getAllMarks();
+			for (var markId in allMarks){
+				if(this._marks[markId] === undefined){
 					// No info about mark yet means divers have not seen it
-					this._marks[i] = new Object();
-					this._marks[i].state = MS_NOT_SEEN;
+					this._marks[markId] = new Object();
+					this._marks[markId].state = MS_NOT_SEEN;
 				}
-				if(this._marks[i].state === MS_NOT_SEEN){
+				if(this._marks[markId].state === MS_NOT_SEEN){
 					// No need to check marks, that we already know about:
 					// if divers saw the mark, or moved and dropped it,
 					// they have reported by radio and can definitely
@@ -589,14 +597,14 @@ function DivingFun(containerId) {
 					
 					// For now: we see everything
 					//TODO: Check if we really see it
-					this._marks[i].state = MS_SEEN;
+					this._marks[markId].state = MS_SEEN;
 				}
-				if(this._marks[i].state === MS_SEEN){
+				if(this._marks[markId].state === MS_SEEN){
 					// Try to assign mark to one of divers
 					for(var j=0;  j<divers.length; j++){
-						if (this._canAssign(divers[j], marks[i])) {
-							this._marks[i].state = MS_ASSIGNED;
-							this._marks[i].assignedTo = divers[j];
+						if (this._canAssign(divers[j], marks[markId])) {
+							this._marks[markId].state = MS_ASSIGNED;
+							this._marks[markId].assignedTo = divers[j];
 							break;
 						}
 					}
