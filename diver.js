@@ -76,6 +76,10 @@ function DivingFun(containerId) {
 	var RC_RETURN_TO_BASE = 1;
 	var RC_PATROL = 2;
 	
+	// Patrol history
+	var PATROL_RIGHT = 0;
+	var PATROL_LEFT = 1;
+	
 	// Sources for images
 	var IMGS_PREFIX = 'images/';
 	var IMGS_SRCS = {
@@ -283,20 +287,18 @@ function DivingFun(containerId) {
 			// Parent's constructor first
 			Obj.call(this, x, y);
 			
-			this._id = createdCounter++;
-			
-			allDivers[this._id] = this;
-			
+			this._id = createdCounter++;			
+			allDivers[this._id] = this;			
 			this.getId = function () { return this._id; };
 			
-			this._prevPosition;
-		
+			this._prevPosition;		
 			this._scubaTank = DWP_SCUBA_TANK_VOLUME; // Remaining volume
 			this._state = DS_STILL;
-			this._goal = null;
-			
+			this._goal = null;			
 			this._leftHand = null;
 			this._rightHand = null;
+			this._lastPatrol = PATROL_RIGHT;
+			this.getLastPatrol = function () { return this._lastPatrol; };
 			// For counting caisson disease therapy time
 			this._caissonTherapy = {stop1: 0, stop2: 0, stop3: 0};
 			
@@ -394,6 +396,7 @@ function DivingFun(containerId) {
 						}
 						break;
 					case RC_PATROL:
+							this._lastPatrol = this._goal.patrol;
 							this._goal = null;
 						break;
 					}
@@ -662,12 +665,19 @@ function DivingFun(containerId) {
 						goal = { command: RC_RETURN_TO_BASE, 
 								x: DWP_BOAT_X, y: DWP_BOAT_Y };
 					} else {
-						/*goal = { 
-							command: RC_PATROL, 
-							x: (divers[i].getX()>DWP_LEFT_EDGE+DWP_DIVER_VIEW 
-									? DWP_LEFT_EDGE : DWP_RIGHT_EDGE), 
-							y: DWP_DEPTH 
-						};*/
+						if (allDivers[diverId].getLastPatrol() === PATROL_LEFT) {
+							goal = {command: RC_PATROL, 
+									x: DWP_RIGHT_EDGE, 
+									y: DWP_DEPTH,
+									patrol: PATROL_RIGHT
+								};
+						} else {
+							goal = {command: RC_PATROL, 
+									x: DWP_LEFT_EDGE, 
+									y: DWP_DEPTH,
+									patrol: PATROL_LEFT
+								};							
+						}
 					}
 				}
 				allDivers[diverId].goGoGo(goal);
