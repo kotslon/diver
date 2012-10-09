@@ -524,7 +524,7 @@ function DivingFun(containerId) {
 				if(this._marks[id] !== undefined){
 					if((this._marks[id].assignedTo === diver)&&
 					   (this._marks[id].state === MS_COLLECTED)){
-						response.push(marks[id]);
+						response.push(allMarks[id]);
 					}
 				}
 			}
@@ -538,7 +538,7 @@ function DivingFun(containerId) {
 				if(this._marks[id] !== undefined){
 					if((this._marks[id].assignedTo === diver)&&
 					   (this._marks[id].state === MS_ASSIGNED)){
-						response.push(marks[id]);
+						response.push(allMarks[id]);
 					}
 				}
 			}
@@ -602,7 +602,7 @@ function DivingFun(containerId) {
 				if(this._marks[markId].state === MS_SEEN){
 					// Try to assign mark to one of divers
 					for(var j=0;  j<divers.length; j++){
-						if (this._canAssign(divers[j], marks[markId])) {
+						if (this._canAssign(divers[j], allMarks[markId])) {
 							this._marks[markId].state = MS_ASSIGNED;
 							this._marks[markId].assignedTo = divers[j];
 							break;
@@ -632,8 +632,7 @@ function DivingFun(containerId) {
 	// VARIABLES
 	
 	var bgObjs = [];
-	//TODO: make array a static field of Mark class?
-	var marks = [];
+
 	//TODO: make array a static field of Diver class?
 	var divers = [];
 	var radio;
@@ -650,10 +649,7 @@ function DivingFun(containerId) {
 		divers.push(diver);
 	}
 	
-	function createMark(x, y) {
-		var mark = new Mark(x, y);
-		marks.push(mark);
-	}
+	function createMark(x, y) {	var mark = new Mark(x, y); }
 	
 	// Main user interaction function
 	function onClick(event){
@@ -712,8 +708,9 @@ function DivingFun(containerId) {
 		case STATE_RUNNING:
 			// Move marks
 			//TODO: create static field instead of .length
-			for (var i=0; i<marks.length; i++) {
-				marks[i].step();
+			var allMarks = Mark.getAllMarks();
+			for (var id in allMarks) {
+				allMarks[id].step();
 			}
 			// Move divers
 			//TODO: create static field instead of .length
