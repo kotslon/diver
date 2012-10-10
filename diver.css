@@ -17,4 +17,29 @@
    height: 5px;
    border-radius: 5px;
  }
- 
+
+.btn {
+	position: absolute;
+	z-index: 16;
+	width: 163px;
+	height: 32px;
+	top: 16px;
+}
+
+.add-diver {
+    left: 570px;
+    background-image: url(images/add-diver.png);
+}
+
+.add-diver:hover {
+    background-image: url(images/add-diver-hover.png);
+}
+
+.delete-diver {
+    left: 391px;
+    background-image: url(images/delete-diver.png);
+}
+
+.delete-diver:hover {
+    background-image: url(images/delete-diver-hover.png);
+}

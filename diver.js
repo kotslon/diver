@@ -16,8 +16,8 @@ function DivingFun(containerId) {
 	var DWP_DEPTH = 620; // px from top
 	var DWP_BOAT_X = 625;
 	var DWP_BOAT_Y = 140;
-	var DWP_LEFT_EDGE = 50;
-	var DWP_RIGHT_EDGE = DFB_WIDTH - 50;
+	var DWP_LEFT_EDGE = 21;
+	var DWP_RIGHT_EDGE = DFB_WIDTH - 21;
 	var DWP_COMPRESSOR_SPEED = 3 * 1000 / STEPS_IN_SECOND;  // ml per step (converted from liters per second)
 	var DWP_SCUBA_TANK_VOLUME = 20 * 1000;  // ml
 	var DWP_DIVER_SPEED = /*20*/ 120 / STEPS_IN_SECOND;  // px per step
@@ -102,6 +102,10 @@ function DivingFun(containerId) {
 			'bg': IMGS_PREFIX+'back.jpg', 'diver-rope': IMGS_PREFIX+'Diver-tros.png',
 			'diver-go-harvest': IMGS_PREFIX+'Diver-go-harvest.png',
 			'diver-go-home': IMGS_PREFIX+'Diver-go-home.png',
+			'add-diver': IMGS_PREFIX+'add-diver.png',
+			'add-diver-hover': IMGS_PREFIX+'add-diver-hover.png',
+			'delete-diver': IMGS_PREFIX+'delete-diver.png',
+			'delete-diver-hover': IMGS_PREFIX+'delete-diver-hover.png',
 			};
 	var IMGS_LAYOUTS = {
 			'diver-go-harvest': {'marginTop': '-60px'},
@@ -254,7 +258,7 @@ function DivingFun(containerId) {
 		
 		this.moveTo(x, y);
 	} // Obj
-	
+
 	
 	// Class for marks - inherited from Obj
 	var Mark =  ( function () {
@@ -823,7 +827,10 @@ function DivingFun(containerId) {
 		var stageX = event.pageX;
 		var stageY = event.pageY;
 		//TODO: create marks only in water
-		createMark(stageX, stageY);
+		if ( (DWP_LEFT_EDGE < stageX) && (stageX < DWP_RIGHT_EDGE) &&
+			 (DWP_BOAT_Y <= stageY) && (stageY <= DWP_DEPTH) ){
+			createMark(stageX, stageY);
+		}
 		
 		event.stopPropagation ? event.stopPropagation() : (event.cancelBubble=true);
 		return false;
@@ -857,8 +864,16 @@ function DivingFun(containerId) {
 				var bg = new Obj(DFB_WIDTH / 2, DFB_HEIGHT / 2);
 				bg.setImage('bg');
 				bgObjs.push(bg);
+				// Creating buttons
+				var btn = document.createElement('div');
+				btn.setAttribute('class', 'btn add-diver');
+				btn.onclick = createDiver;
+				CONTAINER.appendChild(btn);
+				btn = document.createElement('div');
+				btn.setAttribute('class','btn delete-diver');				
+				CONTAINER.appendChild(btn);
 				// Creating 1st diver
-				createDiver();createDiver();createDiver();
+				createDiver();
 			}
 			break;
 		case STATE_RUNNING:
