@@ -214,12 +214,15 @@ function DivingFun(containerId) {
 			}
 			this._wrapper = document.createElement('div');
 			this._wrapper.setAttribute('class','obj-wrapper');
+			this._wrapper.style.backgroundImage = "url('"+IMGS_SRCS[this._imageName]+"')";
 			// Apply layout if one is provided
 			if (IMGS_LAYOUTS[this._imageName] !== 'undefined'){
 				for (var p in IMGS_LAYOUTS[this._imageName]){
 					this._wrapper.style[p] = IMGS_LAYOUTS[this._imageName][p];
 				}
 			}
+			this._wrapper.style.width = this._image.width + 'px';
+			this._wrapper.style.height = this._image.height + 'px';
 			//  Apply shift to center image
 			this._wrapper.style.marginLeft = (this._wrapper.style.marginLeft === '' ?
 					    Math.round( - this._image.width / 2).toString() + 'px' :
@@ -227,7 +230,7 @@ function DivingFun(containerId) {
 			this._wrapper.style.marginTop = (this._wrapper.style.marginTop === '' ?
 						Math.round( - this._image.height / 2).toString() + 'px':
 						this._wrapper.style.marginTop);
-			this._wrapper.appendChild(this._image);
+//			this._wrapper.appendChild(this._image);
 			CONTAINER.appendChild(this._wrapper);
 			this._update();
 		};
