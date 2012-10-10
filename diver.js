@@ -57,12 +57,22 @@ function DivingFun(containerId) {
 		// Not a grate optimization? Whatever... 
 	}
 	
+	// Calculate warning. 
+	// The worst case: we are as far from the rope as we can be
+	// and we are carrying 2 marks rated by 10  
+	DWP_SCUBA_WARNING = DWP_SCUBA_USE[20].perEmersion +
+		DWP_SCUBA_USE[20].perStep * 
+		Math.max( Math.abs(DWP_LEFT_EDGE - DWP_BOAT_X),
+				  Math.abs(DWP_RIGHT_EDGE - DWP_BOAT_X)
+				);
+	
 	// Diver states
 	var DS_STILL = 0;
 	var DS_IMMERSION = 1;
 	var DS_LEFT = 2;
 	var DS_RIGHT = 3;
 	var DS_EMERSION = 4;
+	var DS_RECHARGING_SCUBA =5;
 	
 	// Mark states
 	var MS_NOT_SEEN = 0;
@@ -75,6 +85,7 @@ function DivingFun(containerId) {
 	var RC_HARVEST = 0;
 	var RC_RETURN_TO_BASE = 1;
 	var RC_PATROL = 2;
+	var RC_RECHARGE_SCUBA = 3;
 	
 	// Patrol history
 	var PATROL_RIGHT = 0;
@@ -303,6 +314,10 @@ function DivingFun(containerId) {
 			this._rightHand = null;
 			this._lastPatrol = PATROL_RIGHT;
 			this.getLastPatrol = function () { return this._lastPatrol; };
+			this.getScuba = function () { return this._scubaTank; };
+			this.isRecharging = function () { 
+				return this._state === DS_RECHARGING_SCUBA;
+			};
 			// For counting caisson disease therapy time
 			this._caissonTherapy = {stop1: 0, stop2: 0, stop3: 0};
 			// For showing scuba state
@@ -375,7 +390,11 @@ function DivingFun(containerId) {
 						}
 					} else {
 						// Can't move sidewise - up or down
-						this._setState(this._y > this._goal.y ? DS_EMERSION : DS_IMMERSION);
+						if (this._y > this._goal.y) {
+							this._setState(DS_EMERSION);
+						} else if (this._y < this._goal.y) {
+							this._setState(DS_IMMERSION);
+						} // if this._y === this._goal.y then here we are! doing nothing
 					}
 				} else { // We have no goal yet
 					this._setState(DS_STILL);
@@ -413,17 +432,21 @@ function DivingFun(containerId) {
 						if(this._rightHand !== null){
 							radio.reportStored(this, this._rightHand);
 							this._rightHand = null;
-						}
-						// Charge scuba tank
-						this._scubaTank += DWP_COMPRESSOR_SPEED;
-						if (this._scubaTank >= DWP_SCUBA_TANK_VOLUME ){
-							this._scubaTank = DWP_SCUBA_TANK_VOLUME;
-							this._goal = null;
-						}
+						}						
 						break;
 					case RC_PATROL:
 							this._lastPatrol = this._goal.patrol;
 							this._goal = null;
+						break;
+					case RC_RECHARGE_SCUBA:
+						// Charge scuba tank
+						this._setState(DS_RECHARGING_SCUBA);
+						this._scubaTank += DWP_COMPRESSOR_SPEED;
+						if (this._scubaTank >= DWP_SCUBA_TANK_VOLUME ){
+							this._scubaTank = DWP_SCUBA_TANK_VOLUME;
+							this._goal = null;
+							this._setState(DS_STILL);
+						}
 						break;
 					}
 				}
@@ -543,7 +566,10 @@ function DivingFun(containerId) {
 							//TODO: Add visualisation
 						}
 					}
-					break;
+					break; // case DS_EMERSION
+				case DS_RECHARGING_SCUBA:
+					// No moving allowed while recharging scuba!
+					break; // case DS_RECHARGING_SCUBA
 				}
 				// 2. Reduce scuba tank remaining volume
 				if ( (this._y > DWP_BOAT_Y) || (this._prevPosition.y > DWP_BOAT_Y) ) {
@@ -657,7 +683,6 @@ function DivingFun(containerId) {
 					// if divers saw the mark, or moved and dropped it,
 					// they have reported by radio and can definitely
 					// predict it's position
-					
 					for(var diverId in allDivers){
 						var dist = Math.sqrt(
 								Math.pow(allMarks[markId].getX() - allDivers[diverId].getX(), 2)+
@@ -683,31 +708,48 @@ function DivingFun(containerId) {
 			// Command
 			for(var diverId in allDivers){
 				var goal = null;
-				var assigned = this._assignedTo(allDivers[diverId]);
-				if(assigned.length > 0) {
-					goal = {x: assigned[0].getPosition().x, y: DWP_DEPTH,
-							mark: assigned[0], command: RC_HARVEST};
-				} else {
-					var carried = this._carriedBy(allDivers[diverId]);
-					if(carried.length === 2){
-						goal = { command: RC_RETURN_TO_BASE, 
+				var diverPosition = allDivers[diverId].getPosition();
+				if (allDivers[diverId].isRecharging()){
+					// Sory for bothernig you, man! Continue, please:
+					goal = { command: RC_RECHARGE_SCUBA, 
+							x: DWP_BOAT_X, y: DWP_BOAT_Y };
+				} else if (allDivers[diverId].getScuba() < DWP_SCUBA_WARNING){
+					if ( (diverPosition.x === DWP_BOAT_X) && 
+						 (diverPosition.y === DWP_BOAT_Y) ) {
+						// Start recharging scuba
+						goal = { command: RC_RECHARGE_SCUBA, 
 								x: DWP_BOAT_X, y: DWP_BOAT_Y };
 					} else {
-						if (allDivers[diverId].getLastPatrol() === PATROL_LEFT) {
-							goal = {command: RC_PATROL, 
-									x: DWP_RIGHT_EDGE, 
-									y: DWP_DEPTH,
-									patrol: PATROL_RIGHT
-								};
+						goal = { command: RC_RETURN_TO_BASE, 
+								x: DWP_BOAT_X, y: DWP_BOAT_Y };
+					}
+				} else {
+					var assigned = this._assignedTo(allDivers[diverId]);
+					if(assigned.length > 0) {
+						goal = {x: assigned[0].getPosition().x, y: DWP_DEPTH,
+								mark: assigned[0], command: RC_HARVEST};
+					} else {
+						var carried = this._carriedBy(allDivers[diverId]);
+						if(carried.length === 2){
+							goal = { command: RC_RETURN_TO_BASE, 
+									x: DWP_BOAT_X, y: DWP_BOAT_Y };
 						} else {
-							goal = {command: RC_PATROL, 
-									x: DWP_LEFT_EDGE, 
-									y: DWP_DEPTH,
-									patrol: PATROL_LEFT
-								};							
+							if (allDivers[diverId].getLastPatrol() === PATROL_LEFT) {
+								goal = {command: RC_PATROL, 
+										x: DWP_RIGHT_EDGE, 
+										y: DWP_DEPTH,
+										patrol: PATROL_RIGHT
+									};
+							} else {
+								goal = {command: RC_PATROL, 
+										x: DWP_LEFT_EDGE, 
+										y: DWP_DEPTH,
+										patrol: PATROL_LEFT
+									};							
+							}
 						}
 					}
-				}
+				}	
 				allDivers[diverId].goGoGo(goal);
 			}
 		};
