@@ -546,11 +546,17 @@ function DivingFun(containerId) {
 					break;
 				case DS_LEFT:
 					this.moveRel(-DWP_DIVER_SPEED, 0);
-					//TODO: Check crossing borders
+					// Check crossing borders
+					if (this._x <= DWP_LEFT_EDGE){
+						this._x = DWP_LEFT_EDGE;					
+					}
 					break;
 				case DS_RIGHT:
 					this.moveRel(DWP_DIVER_SPEED, 0);
-					//TODO: Check crossing borders
+					// Check crossing borders
+					if (this._x >= DWP_RIGHT_EDGE){
+						this._x = DWP_RIGHT_EDGE;					
+					}
 					break;
 				case DS_EMERSION:
 					// If we are on the depth we must use oxygen to start emersion
@@ -824,7 +830,7 @@ function DivingFun(containerId) {
 		//TODO: apply CONTAINER's offset
 		var stageX = event.pageX;
 		var stageY = event.pageY;
-		//TODO: create marks only in water
+		// Create marks only in water
 		if ( (DWP_LEFT_EDGE < stageX) && (stageX < DWP_RIGHT_EDGE) &&
 			 (DWP_BOAT_Y <= stageY) && (stageY <= DWP_DEPTH) ){
 			createMark(stageX, stageY);
