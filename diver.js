@@ -44,11 +44,11 @@ function DivingFun(containerId) {
 		DWP_SCUBA_USE[rate] = {};
 		DWP_SCUBA_USE[rate].perStep = DWP_SCUBA_USE_SPEED + 
 									  DWP_MARK_SCUBA_USE * rate;
-		// Calculate scuba use per emersion
-		DWP_SCUBA_USE[rate].perEmersion = 0;
-		// Compensation
-		DWP_SCUBA_USE[rate].perEmersion += rate * DWP_MARK_EMERSION_VOLUME 
+		// Volume used for starting emersion
+		DWP_SCUBA_USE[rate].startEmersion = rate * DWP_MARK_EMERSION_VOLUME 
 				+ DWP_DIVER_EMERSION_VOLUME;
+		// Calculate scuba use per emersion
+		DWP_SCUBA_USE[rate].perEmersion = DWP_SCUBA_USE[rate].startEmersion;
 		// Breath
 		DWP_SCUBA_USE[rate].perEmersion += DWP_SCUBA_USE[rate].perStep *
 				( (DWP_DEPTH - DWP_BOAT_Y) / DWP_DIVER_SPEED +
@@ -138,6 +138,7 @@ function DivingFun(containerId) {
 	var AFFIRMATIVE_SIR = true; // No great purpose,
 	var NEGATIVE_SIR = false;   // just kidding :)
 
+	
 	// CLASSES
 	
 	// Simple inheritance
@@ -149,6 +150,7 @@ function DivingFun(containerId) {
 	    Child.superClass = Parent.prototype;
 	}
 	
+	
 	// Simple logger
 	function Logger (lvl) {
 		var level = lvl;
@@ -157,6 +159,29 @@ function DivingFun(containerId) {
 			if(level <= lvl){ console.log(str);} 
 		};
 	}
+	
+	
+	// Class for compressor
+	function Compressor(speed) {
+		this._speed = speed;
+		this._diver = null;
+		
+		this.charge = function (diver) {
+			var result = diver.getScuba();
+			if (this._diver === null) {
+				this._diver = diver;
+			}
+			if (this._diver === diver){
+				result += this._speed;
+				if (result >= DWP_SCUBA_TANK_VOLUME ){
+					result = DWP_SCUBA_TANK_VOLUME;
+					this._diver = null;
+				}
+			}
+			return result;			
+		}; // Charge
+	} // Compressor
+	
 	
 	// Class for objects
 	function Obj(x, y) {
@@ -229,6 +254,7 @@ function DivingFun(containerId) {
 		
 		this.moveTo(x, y);
 	} // Obj
+	
 	
 	// Class for marks - inherited from Obj
 	var Mark =  ( function () {
@@ -382,7 +408,7 @@ function DivingFun(containerId) {
 							   ){
 								// Stay at the corner
 								this._x = DWP_BOAT_X;
-								this._state = DS_EMERSION;
+								this._setState(DS_EMERSION);
 							} else {
 								// Going to the rope
 								this._setState( DWP_BOAT_X > this._x ? DS_RIGHT : DS_LEFT );
@@ -441,9 +467,8 @@ function DivingFun(containerId) {
 					case RC_RECHARGE_SCUBA:
 						// Charge scuba tank
 						this._setState(DS_RECHARGING_SCUBA);
-						this._scubaTank += DWP_COMPRESSOR_SPEED;
-						if (this._scubaTank >= DWP_SCUBA_TANK_VOLUME ){
-							this._scubaTank = DWP_SCUBA_TANK_VOLUME;
+						this._scubaTank = compressor.charge(this);
+						if (this._scubaTank === DWP_SCUBA_TANK_VOLUME ){
 							this._goal = null;
 							this._setState(DS_STILL);
 						}
@@ -526,6 +551,13 @@ function DivingFun(containerId) {
 					//TODO: Check crossing borders
 					break;
 				case DS_EMERSION:
+					// If we are on the depth we must use oxygen to start emersion
+					if (this._y === DWP_DEPTH) {
+						this._scubaTank -= DWP_SCUBA_USE[
+						     (this._leftHand===null ? 0 : this._leftHand.getRate())+
+						     (this._rightHand===null ? 0 : this._rightHand.getRate())
+						                   				].startEmersion;
+					}
 					// Many checks to avoid caisson desease
 					if ( (this._y === DWP_EMERSION_1ST_STOP) &&
 					     (this._caissonTherapy.stop1 < DWP_EMERSION_1ST_STOP_DURATION) ){
@@ -760,6 +792,7 @@ function DivingFun(containerId) {
 	var bgObjs = [];
 
 	var radio;
+	var compressor;
 	var timer;
 	var state;
 	var inStep = false;
@@ -859,6 +892,8 @@ function DivingFun(containerId) {
 		}
 		// Create mastermind
 		radio = new Radio();
+		// Create compressor
+		compressor = new Compressor(DWP_COMPRESSOR_SPEED);
 		// Add interaction handler
 		CONTAINER.onclick = onClick;
 		// Set scene alive
