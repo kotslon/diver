@@ -191,7 +191,6 @@ function DivingFun(containerId) {
 	function Obj(x, y) {
 		this._x;
 		this._y;
-		this._image;
 		this._imageName;
 		this._wrapper;
 		
@@ -208,29 +207,27 @@ function DivingFun(containerId) {
 		
 		// Create necessary visual elements 
 		this._show = function () {
-			//TODO: move image to background?
 			if(this._wrapper !== undefined ) {
 				CONTAINER.removeChild(this._wrapper);
 			}
 			this._wrapper = document.createElement('div');
 			this._wrapper.setAttribute('class','obj-wrapper');
-			this._wrapper.style.backgroundImage = "url('"+IMGS_SRCS[this._imageName]+"')";
+			this._wrapper.style.backgroundImage = "url('"+IMGS[this._imageName].src+"')";
 			// Apply layout if one is provided
 			if (IMGS_LAYOUTS[this._imageName] !== 'undefined'){
 				for (var p in IMGS_LAYOUTS[this._imageName]){
 					this._wrapper.style[p] = IMGS_LAYOUTS[this._imageName][p];
 				}
 			}
-			this._wrapper.style.width = this._image.width + 'px';
-			this._wrapper.style.height = this._image.height + 'px';
+			this._wrapper.style.width = IMGS[this._imageName].width + 'px';
+			this._wrapper.style.height = IMGS[this._imageName].height + 'px';
 			//  Apply shift to center image
 			this._wrapper.style.marginLeft = (this._wrapper.style.marginLeft === '' ?
-					    Math.round( - this._image.width / 2).toString() + 'px' :
+					    Math.round( - IMGS[this._imageName].width / 2).toString() + 'px' :
 						this._wrapper.style.marginLeft);
 			this._wrapper.style.marginTop = (this._wrapper.style.marginTop === '' ?
-						Math.round( - this._image.height / 2).toString() + 'px':
+						Math.round( - IMGS[this._imageName].height / 2).toString() + 'px':
 						this._wrapper.style.marginTop);
-//			this._wrapper.appendChild(this._image);
 			CONTAINER.appendChild(this._wrapper);
 			this._update();
 		};
@@ -238,8 +235,6 @@ function DivingFun(containerId) {
 		this.setImage = function (img) {
 			if (this._imageName !== img) {
 				this._imageName = img;
-				this._image = new Image();
-				this._image.src = IMGS[this._imageName].src;
 				this._show();
 			}
 		};
