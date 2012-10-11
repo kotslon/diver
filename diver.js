@@ -116,6 +116,7 @@ function DivingFun(containerId) {
 			'delete-diver-hover': IMGS_PREFIX+'delete-diver-hover.png',
 			'boat-load': IMGS_PREFIX+'ship-load.png',
 			'need-rest': IMGS_PREFIX+'thought.png',
+			'fishes': IMGS_PREFIX+'fishes.png',
 			};
 	var IMGS_LAYOUTS = {
 			'diver-go-harvest': {'marginTop': '-60px'},
@@ -139,6 +140,8 @@ function DivingFun(containerId) {
 	
 	var DWP_SAY_DX = -65;
 	var DWP_SAY_DY = -65;
+	
+	var DWP_MARK_SHIFT_RANGE = 20; //px
 	
 	// States
 	var STATE_LOADING = 0;
@@ -335,6 +338,13 @@ function DivingFun(containerId) {
 			this._rate = Math.floor(Math.random() * 10) + 1; 
 			this.setImage('mark' + this.getRate().toString());
 			this._show();
+			// Apply DWP_MARK_SHIFT_RANGE
+			var shift = Math.floor(Math.random() * DWP_MARK_SHIFT_RANGE)
+			             - DWP_MARK_SHIFT_RANGE;
+			this._y += shift;
+			this._wrapper.style.marginTop = Math.round( 
+					- IMGS[this._imageName].height / 2 - shift
+					).toString() + 'px';
 			this.release();
 		};
 		
@@ -1000,6 +1010,12 @@ function DivingFun(containerId) {
 				btn.setAttribute('class','btn delete-diver');
 				btn.onclick = deleteDiver;
 				CONTAINER.appendChild(btn);
+				var tmp = document.createElement('div');
+				tmp.setAttribute('class', 'fish-front');
+				CONTAINER.appendChild(tmp);
+				tmp = document.createElement('div');
+				tmp.setAttribute('class', 'top-text');
+				CONTAINER.appendChild(tmp);
 				// Creating 1st diver
 				createDiver();
 			}

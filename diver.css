@@ -17,6 +17,26 @@
    height: 5px;
    border-radius: 5px;
  }
+ 
+.fish-front {
+	position: absolute;
+	z-index: 1000;
+	left: 220px;
+	top: 360px;
+	width: 99px;
+	height: 72px;
+	background-image: url(images/fishes.png);
+}
+
+.top-text {
+	position: absolute;
+	z-index: 1000;
+	left: 35px;
+	top: 20px;
+	width: 309px;
+	height: 21px;
+	background-image: url(images/text.png);
+}
 
 .btn {
 	position: absolute;
