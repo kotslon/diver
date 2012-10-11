@@ -474,7 +474,7 @@ function DivingFun(containerId) {
 						if(this._rightHand !== null){
 							radio.reportStored(this, this._rightHand);
 							this._rightHand = null;
-						}						
+						}				
 						break;
 					case RC_PATROL:
 							this._lastPatrol = this._goal.patrol;
@@ -742,16 +742,20 @@ function DivingFun(containerId) {
 		this.brief = function () {
 			// Deleting divers
 			for (var id in this._diversToDelete) {
-				for (var markId in this._marks){
-					if ( (this._marks[markId].assignedTo === this._diversToDelete[id] ) &&
-						 ( (this._marks[markId].state === MS_COLLECTED ) || 
-						   (this._marks[markId].state === MS_COLLECTED ) 
-					   ) ){
-						delete this._marks[markId];
-					}
-				}				
-				Diver.deleteDiver(id);
-				delete this._diversToDelete[id];				
+				var dp = this._diversToDelete[id].getPosition();
+				// Can delete only on base
+				if( (dp.x === DWP_BOAT_X) && (dp.y === DWP_BOAT_Y) ) {
+					for (var markId in this._marks){
+						if ( (this._marks[markId].assignedTo === this._diversToDelete[id] ) &&
+							 ( (this._marks[markId].state === MS_COLLECTED ) || 
+							   (this._marks[markId].state === MS_COLLECTED ) 
+						   ) ){
+							delete this._marks[markId];
+						}
+					}				
+					Diver.deleteDiver(id);
+					delete this._diversToDelete[id];	
+				}
 			}
 			// Gathering info about marks
 			var allMarks = Mark.getAllMarks();
