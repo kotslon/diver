@@ -252,6 +252,10 @@ function DivingFun(containerId) {
 		this.getPosition = function () {
 			return {x: this._x, y: this._y};
 		};
+		
+		this.hide = function () {
+			CONTAINER.removeChild(this._wrapper);
+		};
 
 		
 		this.moveTo(x, y);
@@ -370,7 +374,17 @@ function DivingFun(containerId) {
 				this._scubaIndicator.style.width = Math.round(100 *
 						this._scubaTank / DWP_SCUBA_TANK_VOLUME).toString() + '%';
 				
-			} // _showScubaState
+			}; // _showScubaState
+			
+			// Overload parent's
+			this.hide = function ()  {
+				// Drop marks
+				if (this._leftHand !== null) { this._leftHand.release(); }
+				if (this._rightHand !== null) { this._rightHand.release(); }
+				// Remove visual
+				CONTAINER.removeChild(this._scubaIndicatorWrapper);
+				CONTAINER.removeChild(this._wrapper);
+			};
 			
 			this._setState = function (newState) {
 				if(newState!==DS_EMERSION) {
@@ -633,10 +647,16 @@ function DivingFun(containerId) {
 			
 			this._savePrevPosition(); // Just to initialize it
 		};// CDiver
-		// public static
+		
+		// public static functions
 		CDiver.getAllDivers = function () { return allDivers; };
+		CDiver.deleteDiver = function (diverId) {
+			allDivers[diverId].hide();
+			delete allDivers[diverId];
+		};
+		
 		return CDiver;
-	})() // Diver
+	})(); // Diver
 	
 	inherit(Diver, Obj);
 	
@@ -644,6 +664,7 @@ function DivingFun(containerId) {
 	//TODO: make it a singleton? 
 	function Radio()  {
 		this._marks = {};
+		this._diversToDelete = {};
 		
 		this._carriedBy = function (diver) {
 			var response = new Array();
@@ -705,11 +726,34 @@ function DivingFun(containerId) {
 			} else {  // Something's wrong!
 				log.s('>>>> WARNING! Wrong mark collected! <<<<', LL_WARNINNG);
 			}
+		}; // this.reportCollected
+		
+		
+		// Save IDs to delete divers on brief
+		this.deleteDiver = function () {
+			var allDivers = Diver.getAllDivers();
+			for (var id in allDivers) {
+				this._diversToDelete[id] = allDivers[id];
+				break;
+			}
 		};
 		
 		// Main decision making function - divers' conversation
 		this.brief = function () {
-			// first of all, gathering info about marks
+			// Deleting divers
+			for (var id in this._diversToDelete) {
+				for (var markId in this._marks){
+					if ( (this._marks[markId].assignedTo === this._diversToDelete[id] ) &&
+						 ( (this._marks[markId].state === MS_COLLECTED ) || 
+						   (this._marks[markId].state === MS_COLLECTED ) 
+					   ) ){
+						delete this._marks[markId];
+					}
+				}				
+				Diver.deleteDiver(id);
+				delete this._diversToDelete[id];				
+			}
+			// Gathering info about marks
 			var allMarks = Mark.getAllMarks();
 			var allDivers = Diver.getAllDivers();
 			for (var markId in allMarks){
@@ -813,7 +857,9 @@ function DivingFun(containerId) {
 		diver.setImage('diver-rope');
 	}
 	
-	function createMark(x, y) {	var mark = new Mark(x, y); }
+	function deleteDiver() { radio.deleteDiver(); };
+	
+	function createMark(x, y) {	var mark = new Mark(x, y); };
 	
 	// Main user interaction function
 	function onClick(event){
@@ -874,7 +920,8 @@ function DivingFun(containerId) {
 				btn.onclick = createDiver;
 				CONTAINER.appendChild(btn);
 				btn = document.createElement('div');
-				btn.setAttribute('class','btn delete-diver');				
+				btn.setAttribute('class','btn delete-diver');
+				btn.onclick = deleteDiver;
 				CONTAINER.appendChild(btn);
 				// Creating 1st diver
 				createDiver();
