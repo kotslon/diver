@@ -191,6 +191,11 @@ function DivingFun(containerId) {
 			}
 			return result;			
 		}; // Charge
+		
+		this.unplugDeadDiver = function (diver) {
+			if (this._diver === diver) { this._diver = null; }
+		}
+		
 	} // Compressor
 	
 	
@@ -779,6 +784,7 @@ function DivingFun(containerId) {
 							delete this._marks[markId];
 						}
 					}				
+					compressor.unplugDeadDiver(Diver.getAllDivers()[id]);
 					Diver.deleteDiver(id);
 					delete this._diversToDelete[id];	
 				}
