@@ -736,10 +736,14 @@ function DivingFun(containerId) {
 		this.deleteDiver = function () {
 			var allDivers = Diver.getAllDivers();
 			for (var id in allDivers) {
-				this._diversToDelete[id] = allDivers[id];
-				break;
+				var dp = allDivers[id].getPosition();
+				// Delete only divers on base
+				if( (dp.x === DWP_BOAT_X) && (dp.y === DWP_BOAT_Y) ) {
+					this._diversToDelete[id] = allDivers[id];
+					break;
+				}
 			}
-		}; 
+		}; // this.deleteDiver()
 		
 		// Main decision making function - divers' conversation
 		this.brief = function () {
