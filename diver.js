@@ -109,6 +109,7 @@ function DivingFun(containerId) {
 			'add-diver-hover': IMGS_PREFIX+'add-diver-hover.png',
 			'delete-diver': IMGS_PREFIX+'delete-diver.png',
 			'delete-diver-hover': IMGS_PREFIX+'delete-diver-hover.png',
+			'boat-load': IMGS_PREFIX+'ship-load.png',
 			};
 	var IMGS_LAYOUTS = {
 			'diver-go-harvest': {'marginTop': '-60px'},
@@ -126,6 +127,9 @@ function DivingFun(containerId) {
 	var DWP_SCUBA_INDICATOR_WIDTH = 50;
 	var DWP_SCUBA_INDICATOR_DX = - DWP_SCUBA_INDICATOR_WIDTH / 2;
 	var DWP_SCUBA_INDICATOR_DY = -70;
+	
+	var DWP_BOAT_LOAD_X = 665;
+	var DWP_BOAT_LOAD_Y = 107;
 	
 	// States
 	var STATE_LOADING = 0;
@@ -319,8 +323,14 @@ function DivingFun(containerId) {
 			this._show();
 			this.release();
 		};
+		
 		// public static
 		CMark.getAllMarks = function () {	return allMarks; };
+		CMark.deleteMark = function (markId) {
+			allMarks[markId].hide();
+			delete allMarks[markId];
+		};
+		
 		return CMark;
 	})(); // Mark
 	
@@ -666,9 +676,11 @@ function DivingFun(containerId) {
 	// Class for radio - the mastermind, collective intelligence of divers
 	//TODO: make it a singleton? 
 	function Radio()  {
-		this._marks = {};
-		this._diversToDelete = {};
+		this._marks = {}; // Array {id: info} - info about marks
+		this._diversToDelete = {}; // Array {id: diver} of Divers set to be deleted
+		this._stored = 0; // Stored marks counter
 		
+		// Returns array of marks being carried by diver
 		this._carriedBy = function (diver) {
 			var response = new Array();
 			var allMarks = Mark.getAllMarks();
@@ -681,8 +693,9 @@ function DivingFun(containerId) {
 				}
 			}
 			return response;
-		};
+		}; // this._carriedBy
 		
+		// Returns array of marks assigned to diver
 		this._assignedTo = function (diver) {
 			var response = new Array();
 			var allMarks = Mark.getAllMarks();
@@ -695,7 +708,7 @@ function DivingFun(containerId) {
 				}
 			}
 			return response;
-		};
+		}; // this._assignedTo
 		
 		this._canAssign = function (diver, mark) {
 			var response = true;
@@ -712,7 +725,7 @@ function DivingFun(containerId) {
 			if (load >= 2){ response = false; } 
 			//TODO: Check if diver has enough oxygen
 			return response;
-		};
+		}; // this._canAssign
 		
 		this.reportCollected = function (diver, mark) {
 			if(this._marks[mark.getId()].assignedTo === diver) {
@@ -720,12 +733,18 @@ function DivingFun(containerId) {
 			} else {  // Something's wrong!
 				log.s('>>>> WARNING! Wrong mark collected! <<<<', LL_WARNINNG);
 			}
-		};		
+		}; // this.reportCollected		
 		
 		this.reportStored = function (diver, mark) {
 			if(this._marks[mark.getId()].assignedTo === diver) {
 				this._marks[mark.getId()].state = MS_STORED;
 				this._marks[mark.getId()].assignedTo = null;
+				this._stored++;
+				Mark.deleteMark(mark.getId());
+				if (this._stored === 1) {
+					var loadImage = new Obj(DWP_BOAT_LOAD_X, DWP_BOAT_LOAD_Y);
+					loadImage.setImage('boat-load');
+				}
 			} else {  // Something's wrong!
 				log.s('>>>> WARNING! Wrong mark collected! <<<<', LL_WARNINNG);
 			}
