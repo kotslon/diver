@@ -16,8 +16,11 @@ function DivingFun(containerId) {
 	var DWP_DEPTH = 620; // px from top
 	var DWP_BOAT_X = 625;
 	var DWP_BOAT_Y = 140;
-	var DWP_LEFT_EDGE = 21;
-	var DWP_RIGHT_EDGE = DFB_WIDTH - 21;
+	// 21 - border of scene background image, 
+	// 23 - to prevent marks and divers from covering this edge too much
+	var DWP_EDGE_CORRECTION = 23;
+	var DWP_LEFT_EDGE = 21 + DWP_EDGE_CORRECTION;
+	var DWP_RIGHT_EDGE = DFB_WIDTH - 21 - DWP_EDGE_CORRECTION; 
 	var DWP_COMPRESSOR_SPEED = 3 * 1000 / STEPS_IN_SECOND;  // ml per step (converted from liters per second)
 	var DWP_SCUBA_TANK_VOLUME = 20 * 1000;  // ml
 	var DWP_DIVER_SPEED = /*20*/ 120 / STEPS_IN_SECOND;  // px per step
@@ -736,7 +739,7 @@ function DivingFun(containerId) {
 				this._diversToDelete[id] = allDivers[id];
 				break;
 			}
-		};
+		}; 
 		
 		// Main decision making function - divers' conversation
 		this.brief = function () {
@@ -878,11 +881,15 @@ function DivingFun(containerId) {
 				(html.clientTop || 0);
 		}
 		//TODO: apply CONTAINER's offset
-		var stageX = event.pageX;
+		var stageX = event.pageX ;
 		var stageY = event.pageY;
 		// Create marks only in water
-		if ( (DWP_LEFT_EDGE < stageX) && (stageX < DWP_RIGHT_EDGE) &&
+		if ( (DWP_LEFT_EDGE - DWP_EDGE_CORRECTION < stageX) && 
+			 (stageX < DWP_RIGHT_EDGE + DWP_EDGE_CORRECTION) &&
 			 (DWP_BOAT_Y <= stageY) && (stageY <= DWP_DEPTH) ){
+			// Apply edge correction
+			if (stageX < DWP_LEFT_EDGE){ stageX = DWP_LEFT_EDGE; }
+			if (stageX > DWP_RIGHT_EDGE){ stageX = DWP_RIGHT_EDGE; }
 			createMark(stageX, stageY);
 		}
 		
