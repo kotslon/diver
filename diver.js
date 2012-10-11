@@ -16,6 +16,11 @@ function DivingFun(containerId) {
 	var DWP_DEPTH = 620; // px from top
 	var DWP_BOAT_X = 625;
 	var DWP_BOAT_Y = 140;
+	// If set to true, when "delete" button is pressed diver is set to be 
+	//   deleted later - when he returns to base.
+	// If false only divers that are on base in the moment of pressing "delete"
+	//   button can be deleted 
+	var DWP_DELETE_DIVER_LATER = true;
 	// 21 - border of scene background image, 
 	// 23 - to prevent marks and divers from covering this edge too much
 	var DWP_EDGE_CORRECTION = 23;
@@ -760,11 +765,15 @@ function DivingFun(containerId) {
 		this.deleteDiver = function () {
 			var allDivers = Diver.getAllDivers();
 			for (var id in allDivers) {
-				var dp = allDivers[id].getPosition();
-				// Delete only divers on base
-				if( (dp.x === DWP_BOAT_X) && (dp.y === DWP_BOAT_Y) ) {
-					this._diversToDelete[id] = allDivers[id];
-					break;
+				if (this._diversToDelete[id] === undefined) { 
+					// not already set to be deleted
+					var dp = allDivers[id].getPosition();
+					// Delete only divers on base
+					if( (dp.x === DWP_BOAT_X) && (dp.y === DWP_BOAT_Y) ||
+							(DWP_DELETE_DIVER_LATER) ) {
+						this._diversToDelete[id] = allDivers[id];
+						break;
+					}
 				}
 			}
 		}; // this.deleteDiver()
