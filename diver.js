@@ -115,6 +115,7 @@ function DivingFun(containerId) {
 			'delete-diver': IMGS_PREFIX+'delete-diver.png',
 			'delete-diver-hover': IMGS_PREFIX+'delete-diver-hover.png',
 			'boat-load': IMGS_PREFIX+'ship-load.png',
+			'need-rest': IMGS_PREFIX+'thought.png',
 			};
 	var IMGS_LAYOUTS = {
 			'diver-go-harvest': {'marginTop': '-60px'},
@@ -135,6 +136,9 @@ function DivingFun(containerId) {
 	
 	var DWP_BOAT_LOAD_X = 665;
 	var DWP_BOAT_LOAD_Y = 107;
+	
+	var DWP_SAY_DX = -65;
+	var DWP_SAY_DY = -65;
 	
 	// States
 	var STATE_LOADING = 0;
@@ -379,6 +383,8 @@ function DivingFun(containerId) {
 			this._scubaIndicator;
 			this._scubaIndicatorWrapper;
 			
+			this._phraseObj;
+			
 			this._showScubaState = function () {
 				if (this._scubaIndicator === undefined) {
 					// Create indicator
@@ -427,6 +433,15 @@ function DivingFun(containerId) {
 			
 			this._savePrevPosition = function () {
 				this._prevPosition = {x: this._x, y: this._y};
+			};
+			
+			this._say = function(phrase) {
+				this._phraseObj = new Obj(this._x + DWP_SAY_DX, this._y + DWP_SAY_DY);
+				this._phraseObj.setImage(phrase);
+			};
+			
+			this._shutUp = function () {
+				this._phraseObj.hide();
 			};
 	
 			// Determine next move
@@ -607,12 +622,21 @@ function DivingFun(containerId) {
 					if ( (this._y === DWP_EMERSION_1ST_STOP) &&
 					     (this._caissonTherapy.stop1 < DWP_EMERSION_1ST_STOP_DURATION) ){
 						this._caissonTherapy.stop1 += 1; // Counting in steps!
+						if(this._caissonTherapy.stop1 >= DWP_EMERSION_1ST_STOP_DURATION){
+							this._shutUp();
+						}
 					} else if ( (this._y === DWP_EMERSION_2ND_STOP) &&
 					     (this._caissonTherapy.stop2 < DWP_EMERSION_2ND_STOP_DURATION) ){
 						this._caissonTherapy.stop2 += 1; // Counting in steps!
+						if(this._caissonTherapy.stop2 >= DWP_EMERSION_2ND_STOP_DURATION){
+							this._shutUp();
+						}
 					} else if ( (this._y === DWP_EMERSION_3D_STOP) &&
 					     (this._caissonTherapy.stop3 < DWP_EMERSION_3D_STOP_DURATION) ){
 						this._caissonTherapy.stop3 += 1; // Counting in steps!
+						if(this._caissonTherapy.stop3 >= DWP_EMERSION_3D_STOP_DURATION){
+							this._shutUp();
+						}
 					} else {
 						this.moveRel(0, -DWP_DIVER_SPEED);
 						// Check crossing borders	
@@ -626,21 +650,24 @@ function DivingFun(containerId) {
 									   ){
 							this._y = DWP_EMERSION_1ST_STOP;
 							this._caissonTherapy.stop1 = 0;
-							//TODO: Add visualisation
+							// Add visualisation
+							this._say('need-rest');							
 						} else if ( // Starting 2nd therapy stop
 						    ( (this._prevPosition.y > DWP_EMERSION_2ND_STOP) && 
 							  (DWP_EMERSION_2ND_STOP >= this._y) )    
 								   ){
 							this._y = DWP_EMERSION_2ND_STOP;
 							this._caissonTherapy.stop2 = 0;
-							//TODO: Add visualisation
+							// Add visualisation
+							this._say('need-rest');
 						} else if ( // Starting 3d therapy stop
 						    ( (this._prevPosition.y > DWP_EMERSION_3D_STOP) && 
 							  (DWP_EMERSION_3D_STOP >= this._y) )    
 								   ){
 							this._y = DWP_EMERSION_3D_STOP;
 							this._caissonTherapy.stop3 = 0;
-							//TODO: Add visualisation
+							// Add visualisation
+							this._say('need-rest');
 						}
 					}
 					break; // case DS_EMERSION
@@ -660,6 +687,7 @@ function DivingFun(containerId) {
 				if (this._checkGoal()) { this._doTheJob(); }
 				// Move diver and marks being carried
 				this._moveMarks();
+				//TODO: If whant to talk while moving, then move phrase
 				// Show scuba inticator
 				this._showScubaState();
 				// Update visual			
