@@ -1,3 +1,21 @@
+/*
+ *   Made by kotslon (mail@v-kotov.ru)
+ *   for the contest by Topface (http://topface.com/)
+ *  
+ *   Contest details: http://vk.com/page-25678227_44071332
+ *   Contest announcement: http://vk.com/wall-30666517_185958
+ */
+
+/*
+ *   Performance tweaking
+ *   
+ *   For better performance:
+ *   1. FPS constant can be lowered - less frames, more speed
+ *   2. DWP_SIMPLE_ASSIGNING can be set to true - divers will be dumb, 
+ *      but they will do the job according to the conditions (with more movements).
+ *      That will require less calculations, so performance will be better.
+ */
+
 function DivingFun(containerId) {
 
 	// CONSTANTS
@@ -16,11 +34,20 @@ function DivingFun(containerId) {
 	var DWP_DEPTH = 620; // px from top
 	var DWP_BOAT_X = 625;
 	var DWP_BOAT_Y = 140;
+	
+	// Algorithm of assigning marks to divers: 
+	// If true, newly seen mark is assigned to the first diver with free hand (with min id). 
+    // If false, mark assigning is revised every step: for each diver the nearest not yet 
+	//   assigned mark will be assigned (TODO: if diver has enough oxygen left)
+	var DWP_SIMPLE_ASSIGNING = false;
+	
+	// Diver deleting method:
 	// If set to true, when "delete" button is pressed diver is set to be 
 	//   deleted later - when he returns to base.
 	// If false only divers that are on base in the moment of pressing "delete"
 	//   button can be deleted 
 	var DWP_DELETE_DIVER_LATER = true;
+	
 	// 21 - border of scene background image, 
 	// 23 - to prevent marks and divers from covering this edge too much
 	var DWP_EDGE_CORRECTION = 23;
@@ -206,7 +233,7 @@ function DivingFun(containerId) {
 		
 		this.unplugDeadDiver = function (diver) {
 			if (this._diver === diver) { this._diver = null; }
-		}
+		};
 		
 	} // Compressor
 	
@@ -775,6 +802,20 @@ function DivingFun(containerId) {
 			return response;
 		}; // this._canAssign
 		
+		// Calculate distance between diver and mark in steps
+		this._distance = function (diver, mark) {
+			// Assuming mark is not carried by one of divers
+			// 1. How soon will mark reach the bottom?
+			var markSteps = Math.ceil( (DWP_DEPTH - mark.getPosition().y) / 
+					                   DWP_MARK_IMMERSION_SPEED );
+			// 2. How soon will diver reach the point where mark will hit the bottom?
+			var diverSteps = Math.ceil( (DWP_DEPTH - diver.getPosition().y) / 
+	                                    DWP_DIVER_SPEED ) +
+	                         Math.ceil( Math.abs(mark.getPosition().x -
+	                        		    diver.getPosition().x) / DWP_DIVER_SPEED ) ;
+			return Math.max(markSteps, diverSteps);			
+		};
+		
 		this.reportCollected = function (diver, mark) {
 			if(this._marks[mark.getId()].assignedTo === diver) {
 				this._marks[mark.getId()].state = MS_COLLECTED;
@@ -797,7 +838,6 @@ function DivingFun(containerId) {
 				log.s('>>>> WARNING! Wrong mark collected! <<<<', LL_WARNINNG);
 			}
 		}; // this.reportCollected
-		
 		
 		// Save IDs to delete divers on brief
 		this.deleteDiver = function () {
@@ -861,64 +901,138 @@ function DivingFun(containerId) {
 						}
 					}			
 				}
-				if(this._marks[markId].state === MS_SEEN){
-					// Try to assign mark to one of divers
-					for(var diverId in allDivers){
-						if (this._canAssign(allDivers[diverId], allMarks[markId])) {
-							this._marks[markId].state = MS_ASSIGNED;
-							this._marks[markId].assignedTo = allDivers[diverId];
-							break;
-						}
-					}
-				}
-			}
-			// Command
-			for(var diverId in allDivers){
-				var goal = null;
-				var diverPosition = allDivers[diverId].getPosition();
-				if (allDivers[diverId].isRecharging()){
-					// Sory for bothernig you, man! Continue, please:
-					goal = { command: RC_RECHARGE_SCUBA, 
-							x: DWP_BOAT_X, y: DWP_BOAT_Y };
-				} else if (allDivers[diverId].getScuba() < DWP_SCUBA_WARNING){
-					if ( (diverPosition.x === DWP_BOAT_X) && 
-						 (diverPosition.y === DWP_BOAT_Y) ) {
-						// Start recharging scuba
-						goal = { command: RC_RECHARGE_SCUBA, 
-								x: DWP_BOAT_X, y: DWP_BOAT_Y };
-					} else {
-						goal = { command: RC_RETURN_TO_BASE, 
-								x: DWP_BOAT_X, y: DWP_BOAT_Y };
-					}
-				} else {
-					var assigned = this._assignedTo(allDivers[diverId]);
-					if(assigned.length > 0) {
-						goal = {x: assigned[0].getPosition().x, y: DWP_DEPTH,
-								mark: assigned[0], command: RC_HARVEST};
-					} else {
-						var carried = this._carriedBy(allDivers[diverId]);
-						if(carried.length === 2){
-							goal = { command: RC_RETURN_TO_BASE, 
-									x: DWP_BOAT_X, y: DWP_BOAT_Y };
-						} else {
-							if (allDivers[diverId].getLastPatrol() === PATROL_LEFT) {
-								goal = {command: RC_PATROL, 
-										x: DWP_RIGHT_EDGE, 
-										y: DWP_DEPTH,
-										patrol: PATROL_RIGHT
-									};
-							} else {
-								goal = {command: RC_PATROL, 
-										x: DWP_LEFT_EDGE, 
-										y: DWP_DEPTH,
-										patrol: PATROL_LEFT
-									};							
+				if(DWP_SIMPLE_ASSIGNING){
+					if(this._marks[markId].state === MS_SEEN){
+						// Try to assign mark to one of divers
+						for(var diverId in allDivers){
+							if (this._canAssign(allDivers[diverId], allMarks[markId])) {
+								this._marks[markId].state = MS_ASSIGNED;
+								this._marks[markId].assignedTo = allDivers[diverId];
+								break;
 							}
 						}
 					}
-				}	
-				allDivers[diverId].goGoGo(goal);
+				} // if(DWP_SIMPLE_ASSIGNING)
 			}
+			// Command simple assigning 
+			if(DWP_SIMPLE_ASSIGNING){
+				for(var diverId in allDivers){
+					var goal = null;
+					var diverPosition = allDivers[diverId].getPosition();
+					if (allDivers[diverId].isRecharging()){
+						// Sory for bothernig you, man! Continue, please:
+						goal = { command: RC_RECHARGE_SCUBA, 
+								x: DWP_BOAT_X, y: DWP_BOAT_Y };
+					} else if (allDivers[diverId].getScuba() < DWP_SCUBA_WARNING){
+						if ( (diverPosition.x === DWP_BOAT_X) && 
+							 (diverPosition.y === DWP_BOAT_Y) ) {
+							// Start recharging scuba
+							goal = { command: RC_RECHARGE_SCUBA, 
+									x: DWP_BOAT_X, y: DWP_BOAT_Y };
+						} else {
+							goal = { command: RC_RETURN_TO_BASE, 
+									x: DWP_BOAT_X, y: DWP_BOAT_Y };
+						}
+					} else {
+						var assigned = this._assignedTo(allDivers[diverId]);
+						if(assigned.length > 0) {
+							goal = {x: assigned[0].getPosition().x, y: DWP_DEPTH,
+									mark: assigned[0], command: RC_HARVEST};
+						} else {
+							var carried = this._carriedBy(allDivers[diverId]);
+							if(carried.length === 2){
+								goal = { command: RC_RETURN_TO_BASE, 
+										x: DWP_BOAT_X, y: DWP_BOAT_Y };
+							} else {
+								if (allDivers[diverId].getLastPatrol() === PATROL_LEFT) {
+									goal = {command: RC_PATROL,	x: DWP_RIGHT_EDGE,
+											y: DWP_DEPTH, patrol: PATROL_RIGHT };
+								} else {
+									goal = {command: RC_PATROL, x: DWP_LEFT_EDGE,
+											y: DWP_DEPTH, patrol: PATROL_LEFT };							
+								}
+							}
+						}
+					}	
+					allDivers[diverId].goGoGo(goal);
+				}
+			} // if(DWP_SIMPLE_ASSIGNING)
+			else { // More productive assignment:
+				   // more calculations, but faster marks collecting 
+				// Cancel all assignments
+				for(var markId in allMarks){
+					if(this._marks[markId] !== undefined){
+						if(this._marks[markId].state === MS_ASSIGNED){
+							this._marks[markId].state = MS_SEEN;
+							this._marks[markId].assignedTo = null;
+						}
+					}
+				}
+				for(var diverId in allDivers){
+					var goal = null;
+					var diverPosition = allDivers[diverId].getPosition();
+					if (allDivers[diverId].isRecharging()){
+						// Sory for bothernig you, man! Continue, please:
+						goal = { command: RC_RECHARGE_SCUBA, 
+								x: DWP_BOAT_X, y: DWP_BOAT_Y };
+					} else { // Diver is not recharging scuba, so may be he should?
+						if (allDivers[diverId].getScuba() < DWP_SCUBA_WARNING){
+							if ( (diverPosition.x === DWP_BOAT_X) && 
+								 (diverPosition.y === DWP_BOAT_Y) ) {
+								// Start recharging scuba
+								goal = { command: RC_RECHARGE_SCUBA, 
+										x: DWP_BOAT_X, y: DWP_BOAT_Y };
+							} else {
+								goal = { command: RC_RETURN_TO_BASE, 
+										x: DWP_BOAT_X, y: DWP_BOAT_Y }; 
+							}
+						} else {
+							var carried = this._carriedBy(allDivers[diverId]);
+							if(carried.length === 2){
+								goal = { command: RC_RETURN_TO_BASE, 
+										x: DWP_BOAT_X, y: DWP_BOAT_Y };
+							} else {								
+								// Search for the nearest mark
+								var nearestMark = null;
+								var dist;
+								for(var markId in allMarks){
+									if(this._marks[markId] !== undefined){
+										if(this._marks[markId].state === MS_SEEN){
+											var d = this._distance(allDivers[diverId], allMarks[markId]);
+											if (nearestMark === null){
+												dist = d;
+												nearestMark = allMarks[markId];
+											} else if (d < dist) {
+												dist = d;
+												nearestMark = allMarks[markId];
+											}
+										}
+									}
+								} // for marks loop
+								// If nearest mark found - assign it to the diver
+								if(nearestMark !== null){
+									this._marks[nearestMark.getId()].state = MS_ASSIGNED;
+									this._marks[nearestMark.getId()].assignedTo = allDivers[diverId];
+								}
+								var assigned = this._assignedTo(allDivers[diverId]);
+								if(assigned.length > 0) {
+									goal = {x: assigned[0].getPosition().x, y: DWP_DEPTH,
+											mark: assigned[0], command: RC_HARVEST};
+								} else { // If no marks assigned send diver on patrol
+									if (allDivers[diverId].getLastPatrol() === PATROL_LEFT) {
+										goal = {command: RC_PATROL,	x: DWP_RIGHT_EDGE,
+												y: DWP_DEPTH, patrol: PATROL_RIGHT };
+									} else {
+										goal = {command: RC_PATROL, x: DWP_LEFT_EDGE,
+												y: DWP_DEPTH, patrol: PATROL_LEFT };							
+									}
+								}
+							}// else if(carried.length === 2)
+						}// else allDivers[diverId].getScuba() < DWP_SCUBA_WARNING
+					}
+					allDivers[diverId].goGoGo(goal);
+				} // for diver loop
+			}// Better assigning algorithm  
 		};
 	} // Radio
 	
