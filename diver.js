@@ -959,15 +959,15 @@ function DivingFun(containerId) {
 			} // if(DWP_SIMPLE_ASSIGNING)
 			else { // More productive assignment:
 				   // more calculations, but faster marks collecting 
-				// Cancel all assignments
-				for(var markId in allMarks){
-					if(this._marks[markId] !== undefined){
-						if(this._marks[markId].state === MS_ASSIGNED){
-							this._marks[markId].state = MS_SEEN;
-							this._marks[markId].assignedTo = null;
-						}
-					}
-				}
+//				// Cancel all assignments
+//				for(var markId in allMarks){
+//					if(this._marks[markId] !== undefined){
+//						if(this._marks[markId].state === MS_ASSIGNED){
+//							this._marks[markId].state = MS_SEEN;
+//							this._marks[markId].assignedTo = null;
+//						}
+//					}
+//				}
 				for(var diverId in allDivers){
 					var goal = null;
 					var diverPosition = allDivers[diverId].getPosition();
@@ -984,7 +984,15 @@ function DivingFun(containerId) {
 										x: DWP_BOAT_X, y: DWP_BOAT_Y };
 							} else {
 								goal = { command: RC_RETURN_TO_BASE, 
-										x: DWP_BOAT_X, y: DWP_BOAT_Y }; 
+										x: DWP_BOAT_X, y: DWP_BOAT_Y };
+								// Tell the others they can take the mark assigned to this diver
+								// (according to advanced algorithm there can be only one 
+								//  assigned mark for a diver at once)
+								var assigned = this._assignedTo(allDivers[diverId]);
+								if(assigned.length > 0) { 									
+									this._marks[assigned[0].getId()].state = MS_SEEN;
+									this._marks[assigned[0].getId()].assignedTo = null;
+								}
 							}
 						} else {
 							var carried = this._carriedBy(allDivers[diverId]);
@@ -997,7 +1005,11 @@ function DivingFun(containerId) {
 								var dist;
 								for(var markId in allMarks){
 									if(this._marks[markId] !== undefined){
-										if(this._marks[markId].state === MS_SEEN){
+										if( (this._marks[markId].state === MS_SEEN) ||
+											( (this._marks[markId].state === MS_ASSIGNED) &&
+											  (this._marks[markId].assignedTo === allDivers[diverId])
+											)
+										  ){
 											var d = this._distance(allDivers[diverId], allMarks[markId]);
 											if (nearestMark === null){
 												dist = d;
@@ -1011,8 +1023,17 @@ function DivingFun(containerId) {
 								} // for marks loop
 								// If nearest mark found - assign it to the diver
 								if(nearestMark !== null){
-									this._marks[nearestMark.getId()].state = MS_ASSIGNED;
-									this._marks[nearestMark.getId()].assignedTo = allDivers[diverId];
+									if (this._marks[nearestMark.getId()].assignedTo !== allDivers[diverId]) {
+										// May be diver is changing his mind?
+										var assigned = this._assignedTo(allDivers[diverId]);
+										if(assigned.length > 0) { 
+											// If so, tell the others they can take that mark
+											this._marks[assigned[0].getId()].state = MS_SEEN;
+											this._marks[assigned[0].getId()].assignedTo = null;
+										}
+										this._marks[nearestMark.getId()].state = MS_ASSIGNED;
+										this._marks[nearestMark.getId()].assignedTo = allDivers[diverId];
+									}									
 								}
 								var assigned = this._assignedTo(allDivers[diverId]);
 								if(assigned.length > 0) {
