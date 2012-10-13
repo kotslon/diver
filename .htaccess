@@ -1,0 +1,3 @@
+DirectoryIndex index.html
+AddDefaultCharset Off
+ExpiresByType image/jpg "access plus 4 hours"

@@ -38,7 +38,7 @@ function DivingFun(containerId) {
 	// Algorithm of assigning marks to divers: 
 	// If true, newly seen mark is assigned to the first diver with free hand (with min id). 
     // If false, mark assigning is revised every step: for each diver the nearest not yet 
-	//   assigned mark will be assigned (TODO: if diver has enough oxygen left)
+	//   assigned mark will be assigned if diver has enough oxygen left
 	var DWP_SIMPLE_ASSIGNING = false;
 	
 	// Diver deleting method:
@@ -55,7 +55,7 @@ function DivingFun(containerId) {
 	var DWP_RIGHT_EDGE = DFB_WIDTH - 21 - DWP_EDGE_CORRECTION; 
 	var DWP_COMPRESSOR_SPEED = 3 * 1000 / STEPS_IN_SECOND;  // ml per step (converted from liters per second)
 	var DWP_SCUBA_TANK_VOLUME = 20 * 1000;  // ml
-	var DWP_DIVER_SPEED = /*20*/ 120 / STEPS_IN_SECOND;  // px per step
+	var DWP_DIVER_SPEED = 20 / STEPS_IN_SECOND;  // px per step
 	var DWP_EMERSION_1ST_STOP = Math.round(DWP_BOAT_Y + 
 			(DWP_DEPTH - DWP_BOAT_Y) * (1 - 1 / 3) );  // px from top
 	var DWP_EMERSION_1ST_STOP_DURATION = 5 * STEPS_IN_SECOND;  // steps
@@ -66,7 +66,7 @@ function DivingFun(containerId) {
 			(DWP_DEPTH - DWP_BOAT_Y) * (1 - 4 / 5) );  // px from top
 	var DWP_EMERSION_3D_STOP_DURATION = 15 * STEPS_IN_SECOND;  // steps
 	var DWP_DIVER_EMERSION_VOLUME = 50;  // ml
-	var DWP_SCUBA_USE_SPEED = /*50*/ 150 / STEPS_IN_SECOND;  // ml per step
+	var DWP_SCUBA_USE_SPEED = 50 / STEPS_IN_SECOND;  // ml per step
 	var DWP_MARK_SCUBA_USE = 1 / STEPS_IN_SECOND;  //  ml per rate point per step
 	var DWP_MARK_EMERSION_VOLUME = 50;  // ml per rate point
 	var DWP_MARK_IMMERSION_SPEED = 80  / STEPS_IN_SECOND;  // px per step
@@ -808,7 +808,6 @@ function DivingFun(containerId) {
 				}
 			}
 			if (load >= 2){ response = false; } 
-			//TODO: Check if diver has enough oxygen
 			return response;
 		}; // this._canAssign
 		
