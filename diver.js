@@ -92,6 +92,15 @@ function DivingFun(containerId) {
 		// Not a grate optimization? Whatever... 
 	}
 	
+	// Oxygen for ten steaps with maximum load
+	// Where does 10 come from?
+	// 10 is an error in calculations of steps between to diver's position on the scene:
+	// Error comes out on the "edges": start of th rope (when going up and down),
+	// caisson therapy(3 times), picking up marks (2 times) and final step to sthe boat.
+	// That is 8. So we use 10 and the rate of 20 (which itself is a pretty rare case) 
+	// to be really sure :)
+	var DWP_SCUBA_INSURANCE = DWP_SCUBA_USE[20].perStep * 10;
+	
 	// Calculate warning. 
 	// The worst case: we are as far from the rope as we can be
 	// and we are carrying 2 marks rated by 10  
@@ -597,7 +606,8 @@ function DivingFun(containerId) {
 			}; // _checkGoal
 			
 			this.die = function () {
-				log.s('>>>> WARNING! Dead body in the water! <<<<', LL_INFO);
+				log.s('>>>> WARNING! Dead body in the water! Depth: ' + DWP_BOAT_Y + ' <= ' +
+						this._y + ' <= '+ DWP_DEPTH + ' <<<<', LL_INFO);
 				log.s(this);
 			};
 			
@@ -959,15 +969,6 @@ function DivingFun(containerId) {
 			} // if(DWP_SIMPLE_ASSIGNING)
 			else { // More productive assignment:
 				   // more calculations, but faster marks collecting 
-//				// Cancel all assignments
-//				for(var markId in allMarks){
-//					if(this._marks[markId] !== undefined){
-//						if(this._marks[markId].state === MS_ASSIGNED){
-//							this._marks[markId].state = MS_SEEN;
-//							this._marks[markId].assignedTo = null;
-//						}
-//					}
-//				}
 				for(var diverId in allDivers){
 					var goal = null;
 					var diverPosition = allDivers[diverId].getPosition();
@@ -976,7 +977,26 @@ function DivingFun(containerId) {
 						goal = { command: RC_RECHARGE_SCUBA, 
 								x: DWP_BOAT_X, y: DWP_BOAT_Y };
 					} else { // Diver is not recharging scuba, so may be he should?
-						if (allDivers[diverId].getScuba() < DWP_SCUBA_WARNING){
+						// Calculate minimum scuba volume left suitable for remainig in water
+						var minScubaLeft = 0; // was DWP_SCUBA_WARNING - to be shure
+						var carried = this._carriedBy(allDivers[diverId]);
+						var loadRate = 0;
+						for (var i in carried) { loadRate += carried[i].getRate(); }
+						// So, if we want to get more marks:
+						// 1. If diver is not on the bottom, he must go down
+						if (diverPosition.y !== DWP_DEPTH) {
+							minScubaLeft += (DWP_DEPTH - diverPosition.y) / DWP_DIVER_SPEED *
+											DWP_SCUBA_USE[loadRate].perStep;
+						}
+						// 2. Diver must reach the rope to return to base 
+						minScubaLeft += Math.abs(diverPosition.x - DWP_BOAT_X) / DWP_DIVER_SPEED * 
+												DWP_SCUBA_USE[loadRate].perStep;
+						// 3. Diver must go up
+						minScubaLeft += DWP_SCUBA_USE[loadRate].perEmersion;
+						// 4. Insurance: to be safe with cheap scubas made in china :) 
+						minScubaLeft += DWP_SCUBA_INSURANCE;
+						
+						if (allDivers[diverId].getScuba() <= minScubaLeft){
 							if ( (diverPosition.x === DWP_BOAT_X) && 
 								 (diverPosition.y === DWP_BOAT_Y) ) {
 								// Start recharging scuba
@@ -994,8 +1014,7 @@ function DivingFun(containerId) {
 									this._marks[assigned[0].getId()].assignedTo = null;
 								}
 							}
-						} else {
-							var carried = this._carriedBy(allDivers[diverId]);
+						} else {							
 							if(carried.length === 2){
 								goal = { command: RC_RETURN_TO_BASE, 
 										x: DWP_BOAT_X, y: DWP_BOAT_Y };
@@ -1024,16 +1043,34 @@ function DivingFun(containerId) {
 								// If nearest mark found - assign it to the diver
 								if(nearestMark !== null){
 									if (this._marks[nearestMark.getId()].assignedTo !== allDivers[diverId]) {
-										// May be diver is changing his mind?
-										var assigned = this._assignedTo(allDivers[diverId]);
-										if(assigned.length > 0) { 
-											// If so, tell the others they can take that mark
-											this._marks[assigned[0].getId()].state = MS_SEEN;
-											this._marks[assigned[0].getId()].assignedTo = null;
-										}
-										this._marks[nearestMark.getId()].state = MS_ASSIGNED;
-										this._marks[nearestMark.getId()].assignedTo = allDivers[diverId];
-									}									
+										// Does this diver have enough oxygen to take this mark?
+										// Recalculate minScubaLeft: 
+										minScubaLeft = 0;
+										// How mach oxygen does diver need to collect nearestMark?
+										// 1. Diver must reach the mark
+										minScubaLeft += this._distance(allDivers[diverId], nearestMark) * 
+													DWP_SCUBA_USE[loadRate].perStep;
+										// loadRate will increase
+										loadRate += nearestMark.getRate();
+										// 2. Diver must reach the rope to return to base 
+										minScubaLeft += Math.abs(nearestMark.getPosition().x - DWP_BOAT_X) / DWP_DIVER_SPEED * 
+																DWP_SCUBA_USE[loadRate].perStep;
+										// 3. Diver must go up
+										minScubaLeft += DWP_SCUBA_USE[loadRate].perEmersion;
+										// 4. Diver must have an insurance
+										minScubaLeft += DWP_SCUBA_INSURANCE;
+										if (minScubaLeft < allDivers[diverId].getScuba()) {
+											// May be diver is changing his mind?
+											var assigned = this._assignedTo(allDivers[diverId]);
+											if(assigned.length > 0) { 
+												// If so, tell the others they can take that mark
+												this._marks[assigned[0].getId()].state = MS_SEEN;
+												this._marks[assigned[0].getId()].assignedTo = null;
+											}
+											this._marks[nearestMark.getId()].state = MS_ASSIGNED;
+											this._marks[nearestMark.getId()].assignedTo = allDivers[diverId];
+										} // else diver has not enough oxygen in scuba left 
+									} // else nearestMark is allready assigned to this diver									
 								}
 								var assigned = this._assignedTo(allDivers[diverId]);
 								if(assigned.length > 0) {
